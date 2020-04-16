@@ -6,10 +6,7 @@ Functional wrapper around AWS DynamoDB client in F#
 
 ## Builds
 
-| macOS/Linux                                                                                                                                | Windows                                                                                                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [![Travis Badge](https://travis-ci.org/TotallyMoney/DynamoDb.Ok.svg?branch=master)](https://travis-ci.org/TotallyMoney/DynamoDb.Ok)        | [![Build status](https://ci.appveyor.com/api/projects/status/github/TotallyMoney/DynamoDb.Ok?svg=true)](https://ci.appveyor.com/project/TotallyMoney/DynamoDb.Ok) |
-| [![Build History](https://buildstats.info/travisci/chart/TotallyMoney/DynamoDb.Ok)](https://travis-ci.org/TotallyMoney/DynamoDb.Ok/builds) | [![Build History](https://buildstats.info/appveyor/chart/TotallyMoney/DynamoDb.Ok)](https://ci.appveyor.com/project/TotallyMoney/DynamoDb.Ok)                     |
+[![CircleCI](https://circleci.com/gh/totallymoney/DynamoDb.Ok.svg?style=svg)](https://circleci.com/gh/totallymoney/DynamoDb.Ok)
 
 ## NuGet
 
@@ -56,11 +53,6 @@ The bin of your library should look similar to:
 $ tree src/MyCoolNewLib/bin/
 src/MyCoolNewLib/bin/
 └── Debug
-    ├── net461
-    │   ├── FSharp.Core.dll
-    │   ├── MyCoolNewLib.dll
-    │   ├── MyCoolNewLib.pdb
-    │   ├── MyCoolNewLib.xml
     └── netstandard2.1
         ├── MyCoolNewLib.deps.json
         ├── MyCoolNewLib.dll
