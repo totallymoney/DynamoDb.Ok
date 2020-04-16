@@ -6,7 +6,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <Title>DynamoDb.Ok</Title>
-    <Description>DynamoDb.Ok does the thing!</Description>
+    <Description>Functional wrapper around AWS DynamoDB client in F#</Description>
 
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
