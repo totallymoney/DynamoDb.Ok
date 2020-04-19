@@ -242,15 +242,15 @@ module Read =
 
     let (<!>) = AttrReaderResult.map
     let (<*>) = AttrReaderResult.apply
-    let (>>=) f r = AttrReaderResult.bind r f
+    let (>>=) r f = AttrReaderResult.bind f r
 
-    /// pass ARR into map with args reversed for readability
+    /// pass ARR into map
     let (>-) r f = AttrReaderResult.map f r
 
     /// pass ARR into Result returing f (e.g. Parse.*)
     let (>->) r f = AttrReader.map (Result.bind f) r
 
-    /// pass ARR option into map with args reversed for readability
+    /// pass ARR option into map
     let (?>-) r f =
         r >- Option.map f
 
@@ -258,7 +258,7 @@ module Read =
     let (?>->) r f =
         r >-> ifSome f
 
-    /// pass ARR list into map with args reversed for readability
+    /// pass ARR list into map
     let (&>-) r typ =
         r >- List.map typ
 
@@ -266,7 +266,7 @@ module Read =
     let (&>->) r (typ, f) =
         r >-> (List.map typ >> traverseResult f)
 
-    /// pass ARR option list into map with args reversed for readability
+    /// pass ARR option list into map
     let (?&>-) r f =
         r >- Option.map (List.map f)
 
@@ -274,6 +274,13 @@ module Read =
     let (?&>->) r (typ, f) =
         r >-> ifSome (List.map typ >> traverseResult f)
 
+    /// pass ARR list option into map
+    let (&?>-) r f =
+        r >- List.map (Option.map f)
+
+    /// pass ARR list option into Result returing f (e.g. Parse.*)
+    let (&?>->) r (typ, f) =
+        r >-> (List.map (Option.map typ) >> traverseResult (ifSome f))
 
 
     module Query =
