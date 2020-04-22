@@ -137,6 +137,11 @@ module Write =
         let string name s =
             if String.IsNullOrEmpty s then [] else [ Attr(name, ScalarString s) ]
 
+        let docList name =
+            function
+            | h :: t -> [ Attr(name, DocList(h :: t)) ]
+            | _ -> []
+
     module BuildAttrValue =
 
         let optionToNull attr =
@@ -251,36 +256,28 @@ module Read =
     let (>->) r f = AttrReader.map (Result.bind f) r
 
     /// pass ARR option into map
-    let (?>-) r f =
-        r >- Option.map f
+    let (?>-) r f = r >- Option.map f
 
     /// pass ARR option into Result returing f (e.g. Parse.*)
-    let (?>->) r f =
-        r >-> ifSome f
+    let (?>->) r f = r >-> ifSome f
 
     /// pass ARR list into map
-    let (&>-) r typ =
-        r >- List.map typ
+    let (@>-) r typ = r >- List.map typ
 
     /// pass ARR list into Result returing f (e.g. Parse.*)
-    let (&>->) r (typ, f) =
-        r >-> (List.map typ >> traverseResult f)
+    let (@>->) r (typ, f) = r >-> (List.map typ >> traverseResult f)
 
     /// pass ARR option list into map
-    let (?&>-) r f =
-        r >- Option.map (List.map f)
+    let (?@>-) r f = r >- Option.map (List.map f)
 
     /// pass ARR option list into Result returing f (e.g. Parse.*)
-    let (?&>->) r (typ, f) =
-        r >-> ifSome (List.map typ >> traverseResult f)
+    let (?@>->) r (typ, f) = r >-> ifSome (List.map typ >> traverseResult f)
 
     /// pass ARR list option into map
-    let (&?>-) r f =
-        r >- List.map (Option.map f)
+    let (@?>-) r f = r >- List.map (Option.map f)
 
     /// pass ARR list option into Result returing f (e.g. Parse.*)
-    let (&?>->) r (typ, f) =
-        r >-> (List.map (Option.map typ) >> traverseResult (ifSome f))
+    let (@?>->) r (typ, f) = r >-> (List.map (Option.map typ) >> traverseResult (ifSome f))
 
 
     module Query =
@@ -445,10 +442,7 @@ module Example =
         { X = x
           Y = y }
 
-    let innyReader =
-        buildInny
-        <!> (req "x" A.string)
-        <*> (req "y" A.string >-> P.decimal)
+    let innyReader = buildInny <!> (req "x" A.string) <*> (req "y" A.string >-> P.decimal)
 
     type Outty =
         { F: String
@@ -470,11 +464,7 @@ module Example =
 
 
     let outtyReader =
-        buildOutty
-        <!> (req "f" A.string)
-        <*> (req "g" A.string    >->  P.dateTime)
-        <*> (req "i" A.docMap    >->  R.run innyReader)
-        <*> (req "h" A.docList  &>-> (A.docMap, R.run innyReader))
-        <*> (req "j" A.docList  &>-> (A.number, P.decimal))
-        <*> (req "k" A.docList  &>-   A.string)
-        <*> (opt "l" A.docList ?&>-> (A.string, P.dateTime))
+        buildOutty <!> (req "f" A.string) <*> (req "g" A.string >-> P.dateTime)
+        <*> (req "i" A.docMap >-> R.run innyReader) <*> (req "h" A.docList @>-> (A.docMap, R.run innyReader))
+        <*> (req "j" A.docList @>-> (A.number, P.decimal)) <*> (req "k" A.docList @>- A.string)
+        <*> (opt "l" A.docList ?@>-> (A.string, P.dateTime))

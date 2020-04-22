@@ -6,3 +6,4 @@ Fake.DotNet.Cli
 FSharp.Literate
 Fable.React
 Dotnet.ProjInfo.Workspace.FCS
+AWSSDK.DynamoDBv2

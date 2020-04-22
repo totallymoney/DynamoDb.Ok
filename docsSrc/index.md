@@ -4,11 +4,20 @@
 
 ## What is DynamoDb.Ok?
 
-DynamoDb.Ok is a library that does this specific thing.  
+DynamoDb.Ok is a library that wraps the AWS DynamoDB .net client in F#.
 
 ## Why use DynamoDb.Ok?
 
-I created it because I had to solve an issue with this other thing.
+DynamoDb.Ok aims to provide client interface that is more functionally idiomatic.
+It makes use of the `Result` type, hence the suffix `Ok`.
+
+The AWS client library is not broken but it's trivial to make mistakes.
+DynamoDb.Ok wraps AWS client with a type system that makes illegal states unreprestable,
+thereby catching _write_ mistakes at compile time.
+
+For _reads_, DynamoDb.Ok provides a mechanism based on the `Reader monad` to fluently hydrate
+domain types from query results. By providing parsers that return a
+`Result` you can deal with errors using the `ROP`.
 
 ---
 
