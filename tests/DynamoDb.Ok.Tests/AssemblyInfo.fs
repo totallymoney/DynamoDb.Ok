@@ -4,20 +4,20 @@ open System.Reflection
 
 [<assembly: AssemblyTitleAttribute("DynamoDb.Ok.Tests")>]
 [<assembly: AssemblyProductAttribute("DynamoDb.Ok")>]
-[<assembly: AssemblyVersionAttribute("0.0.3")>]
+[<assembly: AssemblyVersionAttribute("0.0.4")>]
 [<assembly: AssemblyMetadataAttribute("ReleaseDate","2020-04-30T00:00:00.0000000+01:00")>]
-[<assembly: AssemblyFileVersionAttribute("0.0.3")>]
-[<assembly: AssemblyInformationalVersionAttribute("0.0.3")>]
+[<assembly: AssemblyFileVersionAttribute("0.0.4")>]
+[<assembly: AssemblyInformationalVersionAttribute("0.0.4")>]
 [<assembly: AssemblyMetadataAttribute("ReleaseChannel","release")>]
-[<assembly: AssemblyMetadataAttribute("GitHash","4d7c15cff1505ac4478c96cac036c6c5df4711e7")>]
+[<assembly: AssemblyMetadataAttribute("GitHash","c140d241297649ac4244f99d704bf90bc385338e")>]
 do ()
 
 module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "DynamoDb.Ok.Tests"
     let [<Literal>] AssemblyProduct = "DynamoDb.Ok"
-    let [<Literal>] AssemblyVersion = "0.0.3"
+    let [<Literal>] AssemblyVersion = "0.0.4"
     let [<Literal>] AssemblyMetadata_ReleaseDate = "2020-04-30T00:00:00.0000000+01:00"
-    let [<Literal>] AssemblyFileVersion = "0.0.3"
-    let [<Literal>] AssemblyInformationalVersion = "0.0.3"
+    let [<Literal>] AssemblyFileVersion = "0.0.4"
+    let [<Literal>] AssemblyInformationalVersion = "0.0.4"
     let [<Literal>] AssemblyMetadata_ReleaseChannel = "release"
-    let [<Literal>] AssemblyMetadata_GitHash = "4d7c15cff1505ac4478c96cac036c6c5df4711e7"
+    let [<Literal>] AssemblyMetadata_GitHash = "c140d241297649ac4244f99d704bf90bc385338e"
