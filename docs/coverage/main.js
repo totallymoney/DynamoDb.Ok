@@ -224,16 +224,16 @@ var assemblies = [
   {
     "name": "DynamoDb.Ok",
     "classes": [
-      { "name": "DynamoDb.Ok.Async", "rp": "DynamoDb.Ok_Async.htm", "cl": 0, "ucl": 5, "cal": 5, "tl": 472, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
+      { "name": "DynamoDb.Ok.Async", "rp": "DynamoDb.Ok_Async.htm", "cl": 0, "ucl": 4, "cal": 4, "tl": 479, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
       { "name": "DynamoDb.Ok.Attr", "rp": "DynamoDb.Ok_Attr.htm", "cl": 0, "ucl": 0, "cal": 0, "tl": 0, "ct": "MethodCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
-      { "name": "DynamoDb.Ok.AttrMapping", "rp": "DynamoDb.Ok_AttrMapping.htm", "cl": 0, "ucl": 22, "cal": 22, "tl": 472, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
+      { "name": "DynamoDb.Ok.AttrMapping", "rp": "DynamoDb.Ok_AttrMapping.htm", "cl": 0, "ucl": 24, "cal": 24, "tl": 479, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
       { "name": "DynamoDb.Ok.AttrValue", "rp": "DynamoDb.Ok_AttrValue.htm", "cl": 0, "ucl": 0, "cal": 0, "tl": 0, "ct": "MethodCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
       { "name": "DynamoDb.Ok.DynamoDbError", "rp": "DynamoDb.Ok_DynamoDbError.htm", "cl": 0, "ucl": 0, "cal": 0, "tl": 0, "ct": "MethodCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
-      { "name": "DynamoDb.Ok.DynamoDbErrorModule", "rp": "DynamoDb.Ok_DynamoDbErrorModule.htm", "cl": 0, "ucl": 6, "cal": 6, "tl": 472, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 2, "lch": [], "bch": [], "hc": [] },
-      { "name": "DynamoDb.Ok.Example", "rp": "DynamoDb.Ok_Example.htm", "cl": 0, "ucl": 13, "cal": 13, "tl": 472, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
+      { "name": "DynamoDb.Ok.DynamoDbErrorModule", "rp": "DynamoDb.Ok_DynamoDbErrorModule.htm", "cl": 0, "ucl": 7, "cal": 7, "tl": 479, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 2, "lch": [], "bch": [], "hc": [] },
+      { "name": "DynamoDb.Ok.Example", "rp": "DynamoDb.Ok_Example.htm", "cl": 0, "ucl": 14, "cal": 14, "tl": 479, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
       { "name": "DynamoDb.Ok.NonEmptyList`1", "rp": "DynamoDb.Ok_NonEmptyList_1.htm", "cl": 0, "ucl": 0, "cal": 0, "tl": 0, "ct": "MethodCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
-      { "name": "DynamoDb.Ok.Read", "rp": "DynamoDb.Ok_Read.htm", "cl": 32, "ucl": 71, "cal": 103, "tl": 472, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 8, "lch": [], "bch": [], "hc": [] },
-      { "name": "DynamoDb.Ok.Write", "rp": "DynamoDb.Ok_Write.htm", "cl": 0, "ucl": 12, "cal": 12, "tl": 472, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 2, "lch": [], "bch": [], "hc": [] },
+      { "name": "DynamoDb.Ok.Read", "rp": "DynamoDb.Ok_Read.htm", "cl": 36, "ucl": 75, "cal": 111, "tl": 479, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 8, "lch": [], "bch": [], "hc": [] },
+      { "name": "DynamoDb.Ok.Write", "rp": "DynamoDb.Ok_Write.htm", "cl": 0, "ucl": 13, "cal": 13, "tl": 479, "ct": "LineCoverage", "mc": "-", "cb": 0, "tb": 2, "lch": [], "bch": [], "hc": [] },
       { "name": "System.AssemblyVersionInformation", "rp": "DynamoDb.Ok_AssemblyVersionInformation.htm", "cl": 0, "ucl": 0, "cal": 0, "tl": 0, "ct": "MethodCoverage", "mc": "-", "cb": 0, "tb": 0, "lch": [], "bch": [], "hc": [] },
     ]},
   {
@@ -795,7 +795,7 @@ var riskHotspots = [
       { "value": 19.47, "exceeded": true },
     ]},
   {
-    "assembly": "DynamoDb.Ok", "class": "DynamoDb.Ok.Read", "reportPath": "DynamoDb.Ok_Read.htm", "methodName": "System.Tuple`2<System.String,Microsoft.FSharp.Collections.FSharpList`1<System.Tuple`2<System.String,DynamoDb.Ok.AttrValue>>> DynamoDb.Ok.Read/Query::keyConditionToString(Microsoft.FSharp.Collections.FSharpList`1<System.Tuple`2<System.String,DynamoDb.Ok.AttrValue>>,DynamoDb.Ok.Read/Query/KeyCondition)", "methodShortName": "keyConditionToString(...)", "fileIndex": 0, "line": 322,
+    "assembly": "DynamoDb.Ok", "class": "DynamoDb.Ok.Read", "reportPath": "DynamoDb.Ok_Read.htm", "methodName": "System.Tuple`2<System.String,Microsoft.FSharp.Collections.FSharpList`1<System.Tuple`2<System.String,DynamoDb.Ok.AttrValue>>> DynamoDb.Ok.Read/Query::keyConditionToString(Microsoft.FSharp.Collections.FSharpList`1<System.Tuple`2<System.String,DynamoDb.Ok.AttrValue>>,DynamoDb.Ok.Read/Query/KeyCondition)", "methodShortName": "keyConditionToString(...)", "fileIndex": 0, "line": 327,
     "metrics": [
       { "value": 8, "exceeded": false },
       { "value": 0, "exceeded": false },
