@@ -364,7 +364,7 @@ module Read =
         |> Async.Catch
         |> Async.map
             (DynamoDbError.handleAsyncError
-             >> Result.map (fun r -> not <| isNull r.Item))
+             >> Result.map (fun r -> toMap r.Item |> Map.isEmpty |> not))
 
     let private queryScanIndexDirection forward (client: AmazonDynamoDBClient) tableName limit reader kce =
         let expression, attrs = Query.buildKeyConditionExpression kce []
