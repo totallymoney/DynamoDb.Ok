@@ -357,6 +357,15 @@ module Read =
              >> Result.map (fun r -> toMap r.Item)
              >> Result.bind (AttrReader.run reader))
 
+    let doesItemExist (client: AmazonDynamoDBClient) tableName fields =
+        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.GetItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map
+            (DynamoDbError.handleAsyncError
+             >> Result.map (fun r -> not <| isNull r.Item))
+
     let private queryScanIndexDirection forward (client: AmazonDynamoDBClient) tableName limit reader kce =
         let expression, attrs = Query.buildKeyConditionExpression kce []
 
