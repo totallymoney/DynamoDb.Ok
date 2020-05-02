@@ -9,7 +9,7 @@ open System.Reflection
 [<assembly: AssemblyFileVersionAttribute("0.0.5")>]
 [<assembly: AssemblyInformationalVersionAttribute("0.0.5")>]
 [<assembly: AssemblyMetadataAttribute("ReleaseChannel","release")>]
-[<assembly: AssemblyMetadataAttribute("GitHash","8165db742f1ac59500e82a4680febc3bbe83df82")>]
+[<assembly: AssemblyMetadataAttribute("GitHash","19553b7201b94e7e1680fd251bd149628f127200")>]
 do ()
 
 module internal AssemblyVersionInformation =
@@ -20,4 +20,4 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyFileVersion = "0.0.5"
     let [<Literal>] AssemblyInformationalVersion = "0.0.5"
     let [<Literal>] AssemblyMetadata_ReleaseChannel = "release"
-    let [<Literal>] AssemblyMetadata_GitHash = "8165db742f1ac59500e82a4680febc3bbe83df82"
+    let [<Literal>] AssemblyMetadata_GitHash = "19553b7201b94e7e1680fd251bd149628f127200"
