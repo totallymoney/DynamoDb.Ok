@@ -110,6 +110,19 @@ module Write =
         |> Async.Catch
         |> Async.map (DynamoDbError.handleAsyncError >> Result.map ignore)
 
+    let putItems (client: AmazonDynamoDBClient) tableName =
+        List.map (
+            AttrMapping.mapAttrsToDictionary
+            >> fun a -> new PutRequest (Item = a)
+            >> fun r -> new WriteRequest (PutRequest = r))
+        >> fun reqs -> [ tableName, ResizeArray reqs ]
+        >> dict >> Dictionary<string, ResizeArray<WriteRequest>>
+        >> fun items -> new BatchWriteItemRequest (RequestItems = items)
+        >> client.BatchWriteItemAsync
+        >> Async.AwaitTask
+        >> Async.Catch
+        >> Async.map (DynamoDbError.handleAsyncError >> Result.map ignore)
+
     let deleteItem (client: AmazonDynamoDBClient) tableName fields =
         new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.DeleteItemAsync
