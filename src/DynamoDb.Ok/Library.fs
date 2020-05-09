@@ -77,11 +77,37 @@ module Async =
             return f x
         }
 
+    let bind f m =
+        async {
+            let! x = m
+            return! f x
+        }
+
+module AsyncResult =
+
+    let retn x = async { return Ok x }
+
+    let map f m =
+        async {
+            let! r = m
+            match r with
+            | Ok a -> return Ok(f a)
+            | Error e -> return Error e
+        }
+
+    let bind f m =
+        async {
+            let! r = m
+            match r with
+            | Ok a -> return! f a
+            | Error e -> return Error e
+        }
 
 type DynamoDbError =
     | ParseError of attributeName: string
     | MissingAttributeError of attributeName: string
     | OperationError of exn
+    | UnprocessedItemsError
 
 module DynamoDbError =
 
@@ -90,6 +116,7 @@ module DynamoDbError =
         | ParseError e
         | MissingAttributeError e -> e
         | OperationError e -> string e
+        | UnprocessedItemsError -> "Unprocessed items in batch operation"
 
     let flatten =
         List.fold (fun acc e -> sprintf "%s\n%s" acc (toString e)) String.Empty
@@ -99,6 +126,7 @@ module DynamoDbError =
         | Choice1Of2 x -> Ok x
         | Choice2Of2 (e: exn) when (e :? AggregateException) -> Error [ OperationError e.InnerException ]
         | Choice2Of2 (e: exn) -> Error [ OperationError e ]
+
 
 
 
@@ -114,6 +142,28 @@ module Write =
              >> Result.map ignore)
 
     let putItems (client: AmazonDynamoDBClient) tableName =
+
+        let (|Success|Retry|GiveUp|) =
+            function
+            | true, true -> Retry
+            | true, false -> GiveUp
+            | false, _ -> Success
+
+        let rec write attempt items: Async<Result<Unit, DynamoDbError list>> =
+            new BatchWriteItemRequest(RequestItems = items)
+            |> client.BatchWriteItemAsync
+            |> Async.AwaitTask
+            |> Async.Catch
+            |> Async.map DynamoDbError.handleAsyncError
+            |> AsyncResult.bind (fun r ->
+                match r.UnprocessedItems.Count > 0, attempt < 3 with
+                | Success -> AsyncResult.retn ()
+                | GiveUp -> Async.retn (Error [ UnprocessedItemsError ])
+                | Retry ->
+                    Async.Sleep (attempt*100)
+                    |> Async.map Ok
+                    |> AsyncResult.bind (fun _ -> write (attempt+1) r.UnprocessedItems))
+
         List.map
             (AttrMapping.mapAttrsToDictionary
              >> fun a -> new PutRequest(Item = a)
@@ -121,13 +171,7 @@ module Write =
         >> fun reqs -> [ tableName, ResizeArray reqs ]
         >> dict
         >> Dictionary<string, ResizeArray<WriteRequest>>
-        >> fun items -> new BatchWriteItemRequest(RequestItems = items)
-        >> client.BatchWriteItemAsync
-        >> Async.AwaitTask
-        >> Async.Catch
-        >> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.map ignore)
+        >> write 0
 
     let deleteItem (client: AmazonDynamoDBClient) tableName fields =
         new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
