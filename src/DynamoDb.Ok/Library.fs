@@ -160,9 +160,9 @@ module Write =
                 | Success -> AsyncResult.retn ()
                 | GiveUp -> Async.retn (Error [ UnprocessedItemsError ])
                 | Retry ->
-                    Async.Sleep (attempt*100)
+                    Async.Sleep(attempt * 100)
                     |> Async.map Ok
-                    |> AsyncResult.bind (fun _ -> write (attempt+1) r.UnprocessedItems))
+                    |> AsyncResult.bind (fun _ -> write (attempt + 1) r.UnprocessedItems))
 
         List.map
             (AttrMapping.mapAttrsToDictionary
@@ -440,30 +440,46 @@ module Read =
             (DynamoDbError.handleAsyncError
              >> Result.map (fun r -> toMap r.Item |> Map.isEmpty |> not))
 
-    let private queryScanIndexDirection forward (client: AmazonDynamoDBClient) tableName reader kce =
-        let expression, attrs = Query.buildKeyConditionExpression kce []
+    [<AbstractClass>]
+    type Query private () =
+        static member query(client: AmazonDynamoDBClient, tableName, reader, kce, ?indexName, ?limit, ?scanIndexForward,
+                            ?exclusiveStartKey, ?consistentRead) =
+            // not yet supported:
+            // ProjectionExpression
+            // FilterExpression
 
-        let buildAttributes =
-            List.map (fun (attr, value) -> attr, AttrMapping.mapAttrValue value)
-            >> dict
-            >> Dictionary<string, A>
+            let expression, attrs = Query.buildKeyConditionExpression kce []
 
-        QueryRequest
-            (tableName,
-             KeyConditionExpression = expression,
-             ExpressionAttributeValues = buildAttributes attrs,
-             ScanIndexForward = forward)
-        |> client.QueryAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
-             >> Result.bind (traverseResult (AttrReader.run reader)))
+            let buildAttributes =
+                List.map (fun (attr, value) -> attr, AttrMapping.mapAttrValue value)
+                >> dict
+                >> Dictionary<string, A>
 
-    let query client = queryScanIndexDirection true client
+            let setOptionalProperty obj prop setter =
+                if Option.isSome prop then setter obj prop.Value
 
-    let queryReverse client = queryScanIndexDirection false client
+            let queryRequest =
+                QueryRequest
+                    (tableName,
+                     KeyConditionExpression = expression,
+                     ExpressionAttributeValues = buildAttributes attrs,
+                     ScanIndexForward = defaultArg scanIndexForward true,
+                     IndexName = defaultArg indexName String.Empty,
+                     ExclusiveStartKey =
+                         (defaultArg exclusiveStartKey []
+                          |> AttrMapping.mapAttrsToDictionary))
+
+            setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
+            setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
+
+            queryRequest
+            |> client.QueryAsync
+            |> Async.AwaitTask
+            |> Async.Catch
+            |> Async.map
+                (DynamoDbError.handleAsyncError
+                 >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
+                 >> Result.bind (traverseResult (AttrReader.run reader)))
 
 
     module Attribute =
