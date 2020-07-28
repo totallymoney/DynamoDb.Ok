@@ -1,4 +1,4 @@
-namespace DynamoDb.Ok
+﻿namespace DynamoDb.Ok
 
 open System
 open System.Collections.Generic
@@ -29,7 +29,6 @@ and AttrValue =
 and NonEmptyList<'a when 'a: comparison> = NonEmptyList of head: 'a * tail: 'a list
 
 type private A = AttributeValue
-
 
 module private AttrMapping =
 
@@ -66,6 +65,12 @@ module private AttrMapping =
         use writer = new StreamWriter(zipStream)
         writer.Write s
         output
+
+    let buildAttrDictionary =
+        List.map (fun (attr, value) -> attr, mapAttrValue value)
+        >> dict
+        >> Dictionary<string, A>
+
 
 module Async =
 
@@ -124,22 +129,200 @@ module DynamoDbError =
     let handleAsyncError =
         function
         | Choice1Of2 x -> Ok x
+        | Choice2Of2 (e: exn) when (e :? ConditionalCheckFailedException) -> Error [ OperationError e.InnerException ]
         | Choice2Of2 (e: exn) when (e :? AggregateException) -> Error [ OperationError e.InnerException ]
         | Choice2Of2 (e: exn) -> Error [ OperationError e ]
 
+module Expiry =
+
+    let private epochTime (d: DateTime) =
+        Convert.ToInt32((d - DateTime.UnixEpoch).TotalSeconds)
+
+    let attribute name d = Attr(name, epochTime d |> ScalarInt32)
 
 
+module ExpressionAttributeName =
+
+    let getExpAttrName attributes value =
+        let getAlphabetLetter =
+            (+) 64 >> char >> string >> fun s -> s.ToLower()
+
+        let attributeName =
+            List.length attributes
+            + 1
+            |> getAlphabetLetter
+            |> sprintf ":%s"
+
+        attributeName, (attributeName, value) :: attributes
 
 module Write =
 
-    let putItem (client: AmazonDynamoDBClient) tableName fields =
-        new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-        |> client.PutItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.map ignore)
+    module ConditionExpression =
+
+        type Condition =
+            | AttributeExists of key: String
+            | AttributeDoesNotExist of key: String
+            | AttributeIsType of key: String * Type
+            | BeginsWith of key: String * value: String
+            | Contains of key: String * value: String
+            | StringEquals of key: String * value: String
+            | StringIn of key: String * String list
+            | NumberEquals of key: String * value: Decimal
+            | NumberLessThan of key: String * value: Decimal
+            | NumberLessThanOrEqualTo of key: String * value: Decimal
+            | NumberGreaterThan of key: String * value: Decimal
+            | NumberGreaterThanOrEqualTo of key: String * value: Decimal
+            | NumberBetwixt of key: String * Decimal * Decimal
+            | NumberIn of key: String * Decimal list
+            | Not of Condition
+
+        and Type =
+            | String
+            | StringSet
+            | Number
+            | NumberSet
+            | Binary
+            | BinarySet
+            | Boolean
+            | Null
+            | List
+            | Map
+
+        and ConditionExpression = ConditionExpression of Condition * (BoolOperator * ConditionExpression) list
+
+        and BoolOperator =
+            | And
+            | Or
+
+        let private boolOperatorToExpression =
+            function
+            | And -> "AND"
+            | Or -> "OR"
+
+        let private getAttributeName = ExpressionAttributeName.getExpAttrName
+
+        let private getAttribute attributes key value format =
+            let attributeName, attributes = getAttributeName attributes value
+            sprintf format key attributeName, attributes
+
+        let csvAttributes attributes key values valueF format =
+            let folder (names, attrs) value =
+                let name, attrs = getAttributeName attrs (valueF value)
+                name :: names, attrs
+
+            let names, attributes = List.fold folder ([], attributes) values
+            sprintf format key (String.Join(",", names)), attributes
+
+        let rec private conditionToString attributes =
+            function
+            | AttributeExists key -> sprintf "attribute_exists(%s)" key, attributes
+
+            | AttributeDoesNotExist key -> sprintf "attribute_not_exists(%s)" key, attributes
+
+            | AttributeIsType (key, type_) ->
+                let typeToString =
+                    function
+                    | Type.String -> "S"
+                    | Type.StringSet -> "SS"
+                    | Type.Number -> "N"
+                    | Type.NumberSet -> "NS"
+                    | Type.Binary -> "B"
+                    | Type.BinarySet -> "BS"
+                    | Type.Boolean -> "BOOL"
+                    | Type.Null -> "NULL"
+                    | Type.List -> "L"
+                    | Type.Map -> "M"
+
+                getAttribute attributes key (ScalarString <| typeToString type_) "attribute_type(%s, %s)"
+
+            | BeginsWith (key, value) -> getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
+
+            | Contains (key, value) -> getAttribute attributes key (ScalarString value) "contains(%s, %s)"
+
+            | StringEquals (key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
+            | NumberEquals (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
+            | NumberLessThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
+            | NumberLessThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
+            | NumberGreaterThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
+            | NumberGreaterThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s >= %s"
+            | NumberBetwixt (key, start, end_) ->
+                let startAttributeName, attributes =
+                    getAttributeName attributes (ScalarDecimal start)
+
+                let endAttributeName, attributes =
+                    getAttributeName attributes (ScalarDecimal end_)
+
+                sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
+            | StringIn (key, values) -> csvAttributes attributes key values ScalarString "%s IN (%s)"
+            | NumberIn (key, values) -> csvAttributes attributes key values ScalarDecimal "%s IN (%s)"
+            | Not c ->
+                let s, attributes = conditionToString attributes c
+                sprintf "NOT %s" s, attributes
+
+        let rec buildConditionExpression (ConditionExpression (kc, additionalConditions)) attributes =
+            let init = conditionToString attributes kc
+
+            let folder (acc, attributes) (operator, kce) =
+                let exp, attributes = buildConditionExpression kce attributes
+
+                let bool = boolOperatorToExpression operator
+                sprintf "%s %s (%s)" acc bool exp, attributes
+
+            List.fold folder init additionalConditions
+
+        let catch =
+            function
+            | Choice1Of2 _ -> Ok()
+            | Choice2Of2 (e: exn) when (e :? AggregateException
+                                        && e.InnerException :? ConditionalCheckFailedException) -> Ok()
+            | Choice2Of2 (e: exn) when (e :? AggregateException) -> Error [ OperationError e.InnerException ]
+            | Choice2Of2 (e: exn) -> Error [ OperationError e ]
+
+
+    module UpdateExpression =
+
+        type UpdateExpression =
+            | Set of key: String * value: AttrValue
+            | Remove of key: String
+
+        let private getAttributeName = ExpressionAttributeName.getExpAttrName
+
+        let private joinSpace (l: String list) = String.Join(" ", l)
+
+        let private joinComma (l: String list) = String.Join(",", l)
+
+        let buildUpdateExpression updateExpressions attributes =
+            let folder (sets, removes, attributes) =
+                function
+                | Set (key, value) ->
+                    let attributeName, attributes = getAttributeName attributes value
+
+                    let exp =
+                        match sets with
+                        | [] -> sprintf "SET %s = %s" key attributeName
+                        | _ -> sprintf "%s = %s" key attributeName
+
+                    exp :: sets, removes, attributes
+                | Remove key ->
+                    let exp =
+                        match removes with
+                        | [] -> sprintf "REMOVE %s" key
+                        | _ -> sprintf "%s" key
+
+                    sets, exp :: removes, attributes
+
+            let sets, removes, attributes =
+                List.fold folder ([], [], attributes) updateExpressions
+
+            let join l =
+                if not <| List.isEmpty l then List.rev l |> joinComma |> Some else None
+
+            let exp =
+                [ join sets; join removes ]
+                |> List.choose id
+                |> joinSpace
+
+            exp, attributes
 
     let putItems (client: AmazonDynamoDBClient) tableName =
 
@@ -213,6 +396,51 @@ module Write =
             function
             | Some s -> attr s
             | None -> ScalarNull
+
+[<AbstractClass>]
+type Write private () =
+
+    static member PutItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
+
+        match conditionExpression
+              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce []) with
+        | Some (exp, attrs) ->
+            new PutItemRequest(tableName,
+                               AttrMapping.mapAttrsToDictionary fields,
+                               ConditionExpression = exp,
+                               ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs)
+        | None -> new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+
+        |> client.PutItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map Write.ConditionExpression.catch
+
+    static member UpdateItem(client: AmazonDynamoDBClient, tableName, key, updateExpression, ?conditionExpression) =
+
+        let updateExp, attributes =
+            Write.UpdateExpression.buildUpdateExpression updateExpression []
+
+        match conditionExpression
+              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce attributes) with
+        | Some (exp, attributes) ->
+            new UpdateItemRequest(tableName,
+                                  AttrMapping.mapAttrsToDictionary key,
+                                  null,
+                                  UpdateExpression = updateExp,
+                                  ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
+                                  ConditionExpression = exp)
+        | None ->
+            new UpdateItemRequest(tableName,
+                                  AttrMapping.mapAttrsToDictionary key,
+                                  null,
+                                  UpdateExpression = updateExp,
+                                  ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes)
+
+        |> client.UpdateItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map Write.ConditionExpression.catch
 
 
 module Read =
@@ -353,73 +581,104 @@ module Read =
 
     module Query =
 
-        type KeyCondition =
-            | StringBeginsWith of key: String * value: String
-            | StringEquals of key: String * value: String
-            | NumberEquals of key: String * value: Decimal
-            | NumberLessThan of key: String * value: Decimal
-            | NumberLessThanOrEqualTo of key: String * value: Decimal
-            | NumberGreaterThan of key: String * value: Decimal
-            | NumberGreaterThanOrEqualTo of key: String * value: Decimal
-            | NumberBetwixt of key: String * value: Decimal * Decimal
+        module KeyConditionExpression =
 
-        and KeyConditionExpression = KeyConditionExpression of KeyCondition * (BoolOperator * KeyConditionExpression) list
+            type KeyCondition =
+                | StringBeginsWith of key: String * value: String
+                | StringEquals of key: String * value: String
+                | NumberEquals of key: String * value: Decimal
+                | NumberLessThan of key: String * value: Decimal
+                | NumberLessThanOrEqualTo of key: String * value: Decimal
+                | NumberGreaterThan of key: String * value: Decimal
+                | NumberGreaterThanOrEqualTo of key: String * value: Decimal
+                | NumberBetwixt of key: String * value: Decimal * Decimal
 
-        and BoolOperator =
-            | And
-            | Or
+            and KeyConditionExpression = KeyConditionExpression of KeyCondition * (BoolOperator * KeyConditionExpression) list
 
-        let private boolOperatorToExpression =
-            function
-            | And -> "AND"
-            | Or -> "OR"
+            and BoolOperator =
+                | And
+                | Or
 
-        let private getAttributeName attributes value =
-            let getAlphabetLetter =
-                (+) 64 >> char >> string >> fun s -> s.ToLower()
+            let private boolOperatorToExpression =
+                function
+                | And -> "AND"
+                | Or -> "OR"
 
-            let attributeName =
-                List.length attributes
-                + 1
-                |> getAlphabetLetter
-                |> sprintf ":%s"
+            let getAttributeName = ExpressionAttributeName.getExpAttrName
 
-            attributeName, (attributeName, value) :: attributes
+            let private getAttribute attributes key value format =
+                let attributeName, attributes = getAttributeName attributes value
+                sprintf format key attributeName, attributes
 
-        let private getAttribute attributes key value format =
-            let attributeName, attributes = getAttributeName attributes value
-            sprintf format key attributeName, attributes
+            let private keyConditionToString attributes =
+                function
+                | StringBeginsWith (key, value) ->
+                    getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
+                | StringEquals (key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
+                | NumberEquals (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
+                | NumberLessThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
+                | NumberLessThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
+                | NumberGreaterThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
+                | NumberGreaterThanOrEqualTo (key, value) ->
+                    getAttribute attributes key (ScalarDecimal value) "%s >= %s"
+                | NumberBetwixt (key, start, end_) ->
+                    let startAttributeName, attributes =
+                        getAttributeName attributes (ScalarDecimal start)
 
-        let private keyConditionToString attributes =
-            function
-            | StringBeginsWith (key, value) -> getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
-            | StringEquals (key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
-            | NumberEquals (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
-            | NumberLessThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
-            | NumberLessThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
-            | NumberGreaterThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
-            | NumberGreaterThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s >= %s"
-            | NumberBetwixt (key, start, end_) ->
-                let startAttributeName, attributes =
-                    getAttributeName attributes (ScalarDecimal start)
+                    let endAttributeName, attributes =
+                        getAttributeName attributes (ScalarDecimal end_)
 
-                let endAttributeName, attributes =
-                    getAttributeName attributes (ScalarDecimal end_)
+                    sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
 
-                sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
+            let rec buildKeyConditionExpression (KeyConditionExpression (kc, additionalConditions)) attributes =
+                let init = keyConditionToString attributes kc
 
-        let rec buildKeyConditionExpression (KeyConditionExpression (kc, additionalConditions)) attributes =
-            let init = keyConditionToString attributes kc
+                let folder (acc, attributes) (operator, kce) =
+                    let exp, attributes =
+                        buildKeyConditionExpression kce attributes
 
-            let folder (acc, attributes) (operator, kce) =
-                let exp, attributes =
-                    buildKeyConditionExpression kce attributes
+                    let bool = boolOperatorToExpression operator
+                    sprintf "%s %s (%s)" acc bool exp, attributes
 
-                let bool = boolOperatorToExpression operator
-                sprintf "%s %s (%s)" acc bool exp, attributes
+                List.fold folder init additionalConditions
 
-            List.fold folder init additionalConditions
 
+    [<AbstractClass>]
+    type Read private () =
+        static member Query(client: AmazonDynamoDBClient, tableName, reader, kce, ?indexName, ?limit, ?scanIndexForward,
+                            ?exclusiveStartKey, ?consistentRead) =
+            // not yet supported:
+            // ProjectionExpression
+            // FilterExpression
+
+            let expression, attrs =
+                Query.KeyConditionExpression.buildKeyConditionExpression kce []
+
+            let setOptionalProperty obj prop setter =
+                if Option.isSome prop then setter obj prop.Value
+
+            let queryRequest =
+                QueryRequest
+                    (tableName,
+                     KeyConditionExpression = expression,
+                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
+                     ScanIndexForward = defaultArg scanIndexForward true,
+                     IndexName = defaultArg indexName String.Empty,
+                     ExclusiveStartKey =
+                         (defaultArg exclusiveStartKey []
+                          |> AttrMapping.mapAttrsToDictionary))
+
+            setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
+            setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
+
+            queryRequest
+            |> client.QueryAsync
+            |> Async.AwaitTask
+            |> Async.Catch
+            |> Async.map
+                (DynamoDbError.handleAsyncError
+                 >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
+                 >> Result.bind (traverseResult (AttrReader.run reader)))
 
     let getItem (client: AmazonDynamoDBClient) tableName reader fields =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
@@ -440,46 +699,6 @@ module Read =
             (DynamoDbError.handleAsyncError
              >> Result.map (fun r -> toMap r.Item |> Map.isEmpty |> not))
 
-    [<AbstractClass>]
-    type Query private () =
-        static member query(client: AmazonDynamoDBClient, tableName, reader, kce, ?indexName, ?limit, ?scanIndexForward,
-                            ?exclusiveStartKey, ?consistentRead) =
-            // not yet supported:
-            // ProjectionExpression
-            // FilterExpression
-
-            let expression, attrs = Query.buildKeyConditionExpression kce []
-
-            let buildAttributes =
-                List.map (fun (attr, value) -> attr, AttrMapping.mapAttrValue value)
-                >> dict
-                >> Dictionary<string, A>
-
-            let setOptionalProperty obj prop setter =
-                if Option.isSome prop then setter obj prop.Value
-
-            let queryRequest =
-                QueryRequest
-                    (tableName,
-                     KeyConditionExpression = expression,
-                     ExpressionAttributeValues = buildAttributes attrs,
-                     ScanIndexForward = defaultArg scanIndexForward true,
-                     IndexName = defaultArg indexName String.Empty,
-                     ExclusiveStartKey =
-                         (defaultArg exclusiveStartKey []
-                          |> AttrMapping.mapAttrsToDictionary))
-
-            setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
-            setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
-
-            queryRequest
-            |> client.QueryAsync
-            |> Async.AwaitTask
-            |> Async.Catch
-            |> Async.map
-                (DynamoDbError.handleAsyncError
-                 >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
-                 >> Result.bind (traverseResult (AttrReader.run reader)))
 
 
     module Attribute =

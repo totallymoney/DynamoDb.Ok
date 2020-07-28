@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "RN0RTxUKZBHawR0AmY37HFfcSvicI1Vxz5i0hL7oAOwjiIp1WcfrGyd8Y7eRutVCSmu8cOb1UC9hcjkzCz961Q==",
+  "success": true,
+  "projectFilePath": "/Users/nblair/work/DynamoDb.Ok/tests/DynamoDb.Ok.UnitTests/DynamoDb.Ok.UnitTests.fsproj",
+  "expectedPackageFiles": [
+    "/Users/nblair/.nuget/packages/awssdk.core/3.3.107.28/awssdk.core.3.3.107.28.nupkg.sha512",
+    "/Users/nblair/.nuget/packages/awssdk.dynamodbv2/3.3.106.36/awssdk.dynamodbv2.3.3.106.36.nupkg.sha512",
+    "/Users/nblair/.nuget/packages/expecto/9.0.2/expecto.9.0.2.nupkg.sha512",
+    "/Users/nblair/.nuget/packages/expecto.fscheck/8.13.1/expecto.fscheck.8.13.1.nupkg.sha512",
+    "/Users/nblair/.nuget/packages/fscheck/2.14.0/fscheck.2.14.0.nupkg.sha512",
+    "/Users/nblair/.nuget/packages/fsharp.core/4.7.2/fsharp.core.4.7.2.nupkg.sha512",
+    "/Users/nblair/.nuget/packages/mono.cecil/0.11.2/mono.cecil.0.11.2.nupkg.sha512"
+  ],
+  "logs": []
+}

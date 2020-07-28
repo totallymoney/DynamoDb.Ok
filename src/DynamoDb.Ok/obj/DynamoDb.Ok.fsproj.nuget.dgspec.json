@@ -1,0 +1,78 @@
+{
+  "format": 1,
+  "restore": {
+    "/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/DynamoDb.Ok.fsproj": {}
+  },
+  "projects": {
+    "/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/DynamoDb.Ok.fsproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/DynamoDb.Ok.fsproj",
+        "projectName": "DynamoDb.Ok",
+        "projectPath": "/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/DynamoDb.Ok.fsproj",
+        "packagesPath": "/Users/nblair/.nuget/packages/",
+        "outputPath": "/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/Users/nblair/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "noWarn": [
+            "NU1603",
+            "NU1604",
+            "NU1605",
+            "NU1608"
+          ]
+        }
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "dependencies": {
+            "AWSSDK.Core": {
+              "target": "Package",
+              "version": "[3.3.107.28, )",
+              "generatePathProperty": true
+            },
+            "AWSSDK.DynamoDBv2": {
+              "target": "Package",
+              "version": "[3.3.106.36, )",
+              "generatePathProperty": true
+            },
+            "FSharp.Core": {
+              "target": "Package",
+              "version": "[4.7.2, )",
+              "generatePathProperty": true
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "NETStandard.Library": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/3.1.301/RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+FSharp.Core,4.7.2,Direct,Main,false,true
+FsCheck,2.14,Direct,Main,false,true
+Mono.Cecil,0.11.2,Transitive,Main,false,true
+Expecto,9.0.2,Direct,Main,false,true
+Expecto.FsCheck,8.13.1,Direct,Main,false,true

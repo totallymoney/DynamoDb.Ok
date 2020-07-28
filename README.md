@@ -1,158 +1,102 @@
 # DynamoDb.Ok
 
-Functional wrapper around AWS DynamoDB client in F#
+## How to get started
 
----
+1. Add links to GH project in all places marked `TODO: ADD_LINK`
+2. Add name of the author in all places marked `TODO: ADD_AUTHOR`
+3. Search for any other places marked with `TODO:` (especially in `build.fsx` script)
 
-## Builds
 
-[![CircleCI](https://circleci.com/gh/totallymoney/DynamoDb.Ok.svg?style=svg)](https://circleci.com/gh/totallymoney/DynamoDb.Ok)
+## What's included
 
-## NuGet
+* Paket, FAKE, and Fornax added as `dotnet` local tools (`.config/dotnet-tools.json`)
+* `build.fsx` file, containing default FAKE script with targets for building, testing, documentation generation, publishing to GitHub, and publishing to NuGet
+* `paket.dependencies` with basic set of dependencies
+* `src` folder containing 2 projects - one class library (`netstandard2.0`), and CLI tool (`netcoreapp3.1`)
+* `test` folder containing UnitTest project using Expecto and FsCheck
+* `docs` folder with Fornax documentation template that will generate nice documentation for your project.
+* `.devcontainer` folder with definition of [Development Container](https://code.visualstudio.com/docs/remote/containers)
+* `.github/workflows` folder with definition for 3 GitHub actions - one for building and testing code as CI, one for creating new GH releases on new tags, one for deploying documentation when new tag is pushed. To use latter, you need to define `PERSONAL_TOKEN` secret in GitHub repo settings with Personal Access Token.
+* `.github/ISSUE_TEMPLATE` folder with 2 different issue templates - one for bug report, other one for feature request
 
-| Package     | Stable                                                                                                   | Prerelease                                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| DynamoDb.Ok | [![NuGet Badge](https://buildstats.info/nuget/DynamoDb.Ok)](https://www.nuget.org/packages/DynamoDb.Ok/) | [![NuGet Badge](https://buildstats.info/nuget/DynamoDb.Ok?includePreReleases=true)](https://www.nuget.org/packages/DynamoDb.Ok/) |
+## How to build application
 
----
+1. Make sure you've installed .Net Core version defined in [global.json](global.json)
+2. Run `dotnet tool restore` to install all developer tools required to build the project
+3. Run `dotnet fake build` to build default target of [build script](build.fsx)
+4. To run tests use `dotnet fake build -t Test`
+5. To build documentation use `dotnet fake build -t Docs`
 
-### Developing
+## How to work with documentation
 
-Make sure the following **requirements** are installed on your system:
+1. Make sure you've installed .Net Core version defined in [global.json](global.json)
+2. Run `dotnet tool restore` to install all developer tools required to build the project
+3. Run `dotnet fake build` to build default target of [build script](build.fsx)
+4. Build documentation to make sure everything is fine with `dotnet fake build -t Docs`
+5. Go to docs folder `cd docs` and start Fornax in watch mode `dotnet fornax watch`
+6. You documentation should be now accessible on `localhost:8080` and will be regenerated on every file save
 
--   [dotnet SDK](https://www.microsoft.com/net/download/core) 3.0 or higher
--   [Mono](http://www.mono-project.com/) if you're on Linux or macOS.
 
-or
+## How to release.
 
--   [VSCode Dev Container](https://code.visualstudio.com/docs/remote/containers)
+#### Releasing as part of the CI
 
----
+1. Update [CHANGELOG.md](./CHANGELOG.md) by adding new entry (`## [X.Y.Z]`) and commit it.
+2. Create version tag (`git tag vX.Y.Z`)
+3. Run `dotnet fake build -t Pack` to create the nuget package and test/examine it locally.
+4. Push the tag to the repo `git push origin vX.Y.Z` - this will start CI process that will create GitHub release and put generated NuGet packages in it
+5. Upload generated packages into NuGet.org
 
-### Environment Variables
+#### Releasing from local machine
 
--   `CONFIGURATION` will set the [configuration](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-build?tabs=netcore2x#options) of the dotnet commands. If not set, it will default to Release.
-    -   `CONFIGURATION=Debug ./build.sh` will result in `-c` additions to commands such as in `dotnet build -c Debug`
--   `GITHUB_TOKEN` will be used to upload release notes and Nuget packages to GitHub.
-    -   Be sure to set this before releasing
--   `DISABLE_COVERAGE` Will disable running code coverage metrics. AltCover can have [severe performance degradation](https://github.com/SteveGilham/altcover/issues/57) so it's worth disabling when looking to do a quicker feedback loop.
-    -   `DISABLE_COVERAGE=1 ./build.sh`
-
----
-
-### Building
-
-```sh
-> build.cmd <optional buildtarget> // on windows
-$ ./build.sh  <optional buildtarget>// on unix
-```
-
-The bin of your library should look similar to:
-
-```
-$ tree src/MyCoolNewLib/bin/
-src/MyCoolNewLib/bin/
-└── Debug
-    └── netstandard2.1
-        ├── MyCoolNewLib.deps.json
-        ├── MyCoolNewLib.dll
-        ├── MyCoolNewLib.pdb
-        └── MyCoolNewLib.xml
+In case you don't want to create releases automatically as part of the CI process, we provide also set of helper targets in `build.fsx` script.
+Create release.cmd or release.sh file (already git-ignored) with following content (sample from `cmd`, but `sh` file should be similar):
 
 ```
+@echo off
+cls
 
----
+SET nuget-key=YOUR_NUGET_KEY
+SET github-user=YOUR_GH_USERNAME
+SET github-pw=YOUR_GH_PASSWORD_OR_ACCESS_TOKEN
 
-### Build Targets
-
--   `Clean` - Cleans artifact and temp directories.
--   `DotnetRestore` - Runs [dotnet restore](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-restore?tabs=netcore2x) on the [solution file](https://docs.microsoft.com/en-us/visualstudio/extensibility/internals/solution-dot-sln-file?view=vs-2019).
--   [`DotnetBuild`](#Building) - Runs [dotnet build](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-build?tabs=netcore2x) on the [solution file](https://docs.microsoft.com/en-us/visualstudio/extensibility/internals/solution-dot-sln-file?view=vs-2019).
--   `DotnetTest` - Runs [dotnet test](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-test?tabs=netcore21) on the [solution file](https://docs.microsoft.com/en-us/visualstudio/extensibility/internals/solution-dot-sln-file?view=vs-2019).
--   `GenerateCoverageReport` - Code coverage is run during `DotnetTest` and this generates a report via [ReportGenerator](https://github.com/danielpalme/ReportGenerator).
--   `WatchTests` - Runs [dotnet watch](https://docs.microsoft.com/en-us/aspnet/core/tutorials/dotnet-watch?view=aspnetcore-3.0) with the test projects. Useful for rapid feedback loops.
--   `GenerateAssemblyInfo` - Generates [AssemblyInfo](https://docs.microsoft.com/en-us/dotnet/api/microsoft.visualbasic.applicationservices.assemblyinfo?view=netframework-4.8) for libraries.
--   `DotnetPack` - Runs [dotnet pack](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-pack). This includes running [Source Link](https://github.com/dotnet/sourcelink).
--   `SourceLinkTest` - Runs a Source Link test tool to verify Source Links were properly generated.
--   `PublishToNuGet` - Publishes the NuGet packages generated in `DotnetPack` to NuGet via [paket push](https://fsprojects.github.io/Paket/paket-push.html).
--   `GitRelease` - Creates a commit message with the [Release Notes](https://fake.build/apidocs/v5/fake-core-releasenotes.html) and a git tag via the version in the `Release Notes`.
--   `GitHubRelease` - Publishes a [GitHub Release](https://help.github.com/en/articles/creating-releases) with the Release Notes and any NuGet packages.
--   `FormatCode` - Runs [Fantomas](https://github.com/fsprojects/fantomas) on the solution file.
--   `BuildDocs` - Generates Documentation from `docsSrc` and the [XML Documentation Comments](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/xmldoc/) from your libraries in `src`.
--   `WatchDocs` - Generates documentation and starts a webserver locally. It will rebuild and hot reload if it detects any changes made to `docsSrc` files, libraries in `src`, or the `docsTool` itself.
--   `ReleaseDocs` - Will stage, commit, and push docs generated in the `BuildDocs` target.
--   [`Release`](#Releasing) - Task that runs all release type tasks such as `PublishToNuGet`, `GitRelease`, `ReleaseDocs`, and `GitHubRelease`. Make sure to read [Releasing](#Releasing) to setup your environment correctly for releases.
-
----
-
-### Releasing
-
--   [Start a git repo with a remote](https://help.github.com/articles/adding-an-existing-project-to-github-using-the-command-line/)
-
-```sh
-git add .
-git commit -m "Scaffold"
-git remote add origin https://github.com/user/MyCoolNewLib.git
-git push -u origin master
+dotnet fake build --target Release
 ```
 
--   [Add your NuGet API key to paket](https://fsprojects.github.io/Paket/paket-config.html#Adding-a-NuGet-API-key)
+## Documentation Theme
 
-```sh
-paket config add-token "https://www.nuget.org" 4003d786-cc37-4004-bfdf-c4f3e8ef9b3a
-```
+Template includes, out-of-the-box, nice theme for your project documentation, which integrates with FSharp.Formatting to create also API reference
 
--   [Create a GitHub OAuth Token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
+* Sample documentation produced by the template can be found on http://kcieslak.io/SampleDynamoDb.Ok.
+* Created theme is partial port to Fornax of [Hugo Learn theme](https://learn.netlify.com/en/).
+* You define content as markdown files
+* Menu navigation based on the documentation system described on https://documentation.divio.com/
+* Use FSharp.Formatting to create API reference for the project - sample: http://kcieslak.io/SampleDynamoDb.Ok/Reference/ApiRef.html
+* Use [Lunr.js](https://lunrjs.com/) to provide client side search based on generated by Fornax search index - sample: try searching for `Lorem` or `Sample` in search available on http://kcieslak.io/SampleDynamoDb.Ok
+* Use [Mermaid.js](https://mermaid-js.github.io/mermaid/#/) to provide client side render diagrams and graphs - sample: http://kcieslak.io/SampleDynamoDb.Ok/diagrams.html
 
-    -   You can then set the `GITHUB_TOKEN` to upload release notes and artifacts to github
-    -   Otherwise it will fallback to username/password
+## How to contribute
 
--   Then update the `CHANGELOG.md` with an "Unreleased" section containing release notes for this version, in [KeepAChangelog](https://keepachangelog.com/en/1.1.0/) format.
+*Imposter syndrome disclaimer*: I want your help. No really, I do.
 
-NOTE: Its highly recommend to add a link to the Pull Request next to the release note that it affects. The reason for this is when the `RELEASE` target is run, it will add these new notes into the body of git commit. GitHub will notice the links and will update the Pull Request with what commit referenced it saying ["added a commit that referenced this pull request"](https://github.com/TheAngryByrd/MiniScaffold/pull/179#ref-commit-837ad59). Since the build script automates the commit message, it will say "Bump Version to x.y.z". The benefit of this is when users goto a Pull Request, it will be clear when and which version those code changes released. Also when reading the `CHANGELOG`, if someone is curious about how or why those changes were made, they can easily discover the work and discussions.
+There might be a little voice inside that tells you you're not ready; that you need to do one more tutorial, or learn another framework, or write a few more blog posts before you can help me with this project.
 
-Here's an example of adding an "Unreleased" section to a `CHANGELOG.md` with a `0.1.0` section already released.
+I assure you, that's not the case.
 
-```markdown
-## [Unreleased]
+This project has some clear Contribution Guidelines and expectations that you can [read here](CONTRIBUTING.md).
 
-### Added
+The contribution guidelines outline the process that you'll need to follow to get a patch merged. By making expectations and process explicit, I hope it will make it easier for you to contribute.
 
--   Does cool stuff!
+And you don't just have to write code. You can help out by writing documentation, tests, or even by giving feedback about this work. (And yes, that includes giving feedback about the contribution guidelines.)
 
-### Fixed
+Thank you for contributing!
 
--   Fixes that silly oversight
 
-## [0.1.0] - 2017-03-17
+## Contributing and copyright
 
-First release
+The project is hosted on [GitHub](TODO: ADD_LINK) where you can report issues, fork
+the project and submit pull requests.
 
-### Added
+The library is available under [MIT license](LICENSE.md), which allows modification and redistribution for both commercial and non-commercial purposes.
 
--   This release already has lots of features
-
-[unreleased]: https://github.com/user/MyCoolNewLib.git/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/user/MyCoolNewLib.git/releases/tag/v0.1.0
-```
-
--   You can then use the `Release` target, specifying the version number either in the `RELEASE_VERSION` environment
-    variable, or else as a parameter after the target name. This will:
-    -   update `CHANGELOG.md`, moving changes from the `Unreleased` section into a new `0.2.0` section
-        -   if there were any prerelease versions of 0.2.0 in the changelog, it will also collect their changes into the final 0.2.0 entry
-    -   make a commit bumping the version: `Bump version to 0.2.0` and adds the new changelog section to the commit's body
-    -   publish the package to NuGet
-    -   push a git tag
-    -   create a GitHub release for that git tag
-
-macOS/Linux Parameter:
-
-```sh
-./build.sh Release 0.2.0
-```
-
-macOS/Linux Environment Variable:
-
-```sh
-RELEASE_VERSION=0.2.0 ./build.sh Release
-```
+Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.

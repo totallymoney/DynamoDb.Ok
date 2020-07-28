@@ -1,0 +1,10 @@
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/bin/Debug/netstandard2.1/DynamoDb.Ok.deps.json
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/bin/Debug/netstandard2.1/DynamoDb.Ok.dll
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/bin/Debug/netstandard2.1/DynamoDb.Ok.pdb
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/bin/Debug/netstandard2.1/DynamoDb.Ok.xml
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/Debug/netstandard2.1/DynamoDb.Ok.fsprojAssemblyReference.cache
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/Debug/netstandard2.1/DynamoDb.Ok.AssemblyInfoInputs.cache
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/Debug/netstandard2.1/DynamoDb.Ok.AssemblyInfo.fs
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/Debug/netstandard2.1/DynamoDb.Ok.dll
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/Debug/netstandard2.1/DynamoDb.Ok.xml
+/Users/nblair/work/DynamoDb.Ok/src/DynamoDb.Ok/obj/Debug/netstandard2.1/DynamoDb.Ok.pdb

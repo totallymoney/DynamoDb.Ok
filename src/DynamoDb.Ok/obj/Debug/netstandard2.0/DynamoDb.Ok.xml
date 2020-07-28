@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doc>
+<assembly><name>DynamoDb.Ok</name></assembly>
+<members>
+<member name="P:DynamoDb.Ok.Say.SampleType.B">
+<summary>
+And more comments
+</summary>
+</member>
+<member name="P:DynamoDb.Ok.Say.SampleType.A">
+<summary>
+Some more comments
+</summary>
+</member>
+<member name="T:DynamoDb.Ok.Say.SampleType">
+<summary>
+Some comment on the type
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Say.hello(System.String)">
+<summary>
+Some comment on the function
+
+ ```
+ let sample = hello &quot;Chris&quot;
+ sample = &quot;Hello Chris&quot;
+ ```
+</summary>
+</member>
+<member name="T:DynamoDb.Ok.Say">
+<summary>
+Some comment on the module
+</summary>
+</member>
+</members>
+</doc>

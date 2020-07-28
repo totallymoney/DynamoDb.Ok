@@ -1,35 +1,22 @@
----
-name: Bug report
-about: Create a report to help us improve
+### Description
 
----
+> Short and descriptive example bug report title
+> A summary of the issue and the environment in which it occurs. If suitable,
+> include the steps required to reproduce the bug.
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+### Reproduction steps
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+> 1. This is the first step
+> 2. This is the second step
+> 3. Further steps, etc.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+### Reproduction code
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+> `<url>` - a link to the reduced test case (e.g. a GitHub Gist)
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+### Other info
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**Additional context**
-Add any other context about the problem here.
+> Any other information you want to share that is relevant to the issue being
+> reported. This might include the lines of code that you have identified as
+> causing the bug, and potential solutions (and your opinions on their
+> merits).

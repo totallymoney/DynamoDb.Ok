@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <RestoreSuccess Condition=" '$(RestoreSuccess)' == '' ">True</RestoreSuccess>
+    <RestoreTool Condition=" '$(RestoreTool)' == '' ">NuGet</RestoreTool>
+    <ProjectAssetsFile Condition=" '$(ProjectAssetsFile)' == '' ">$(MSBuildThisFileDirectory)project.assets.json</ProjectAssetsFile>
+    <NuGetPackageRoot Condition=" '$(NuGetPackageRoot)' == '' ">/Users/nblair/.nuget/packages/</NuGetPackageRoot>
+    <NuGetPackageFolders Condition=" '$(NuGetPackageFolders)' == '' ">/Users/nblair/.nuget/packages/</NuGetPackageFolders>
+    <NuGetProjectStyle Condition=" '$(NuGetProjectStyle)' == '' ">PackageReference</NuGetProjectStyle>
+    <NuGetToolVersion Condition=" '$(NuGetToolVersion)' == '' ">5.6.0</NuGetToolVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <PkgMono_Cecil Condition=" '$(PkgMono_Cecil)' == '' ">/Users/nblair/.nuget/packages/mono.cecil/0.11.2</PkgMono_Cecil>
+    <PkgFSharp_Core Condition=" '$(PkgFSharp_Core)' == '' ">/Users/nblair/.nuget/packages/fsharp.core/4.7.2</PkgFSharp_Core>
+    <PkgFsCheck Condition=" '$(PkgFsCheck)' == '' ">/Users/nblair/.nuget/packages/fscheck/2.14.0</PkgFsCheck>
+    <PkgExpecto Condition=" '$(PkgExpecto)' == '' ">/Users/nblair/.nuget/packages/expecto/9.0.2</PkgExpecto>
+    <PkgExpecto_FsCheck Condition=" '$(PkgExpecto_FsCheck)' == '' ">/Users/nblair/.nuget/packages/expecto.fscheck/8.13.1</PkgExpecto_FsCheck>
+    <PkgAWSSDK_Core Condition=" '$(PkgAWSSDK_Core)' == '' ">/Users/nblair/.nuget/packages/awssdk.core/3.3.107.28</PkgAWSSDK_Core>
+    <PkgAWSSDK_DynamoDBv2 Condition=" '$(PkgAWSSDK_DynamoDBv2)' == '' ">/Users/nblair/.nuget/packages/awssdk.dynamodbv2/3.3.106.36</PkgAWSSDK_DynamoDBv2>
+  </PropertyGroup>
+</Project>

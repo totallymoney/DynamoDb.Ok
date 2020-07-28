@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doc>
+<assembly><name>DynamoDb.Ok</name></assembly>
+<members>
+<member name="T:DynamoDb.Ok.Example">
+<summary>
+ todo:
+ parameterize error type (not hardcoded string)
+ update
+ page results
+ filter expressions
+ global/local secondary indexes
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_AtQmarkGreaterMinusGreater``4(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Core.FSharpOption{``0}},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2},Microsoft.FSharp.Core.FSharpFunc{``2,Microsoft.FSharp.Core.FSharpResult{``3,``1}})">
+<summary>
+ pass ARR list option into Result returing f (e.g. Parse.*)
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_AtQmarkGreaterMinus``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Core.FSharpOption{``0}},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2})">
+<summary>
+ pass ARR list option into map
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_QmarkAtGreaterMinusGreater``4(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{``0}},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2},Microsoft.FSharp.Core.FSharpFunc{``2,Microsoft.FSharp.Core.FSharpResult{``3,``1}})">
+<summary>
+ pass ARR option list into Result returing f (e.g. Parse.*)
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_QmarkAtGreaterMinus``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Collections.FSharpList{``0}},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2})">
+<summary>
+ pass ARR option list into map
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_AtGreaterMinusGreater``4(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Collections.FSharpList{``0},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2},Microsoft.FSharp.Core.FSharpFunc{``2,Microsoft.FSharp.Core.FSharpResult{``3,``1}})">
+<summary>
+ pass ARR list into Result returing f (e.g. Parse.*)
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_AtGreaterMinus``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Collections.FSharpList{``0},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2})">
+<summary>
+ pass ARR list into map
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_QmarkGreaterMinusGreater``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Core.FSharpOption{``0},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpResult{``2,``1}})">
+<summary>
+ pass ARR option into Result returing f (e.g. Parse.*)
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_QmarkGreaterMinus``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{Microsoft.FSharp.Core.FSharpOption{``0},``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2})">
+<summary>
+ pass ARR option into map
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_GreaterMinusGreater``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{``0,``1}},Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpResult{``2,``1}})">
+<summary>
+ pass ARR into Result returing f (e.g. Parse.*)
+</summary>
+</member>
+<member name="M:DynamoDb.Ok.Read.op_GreaterMinus``3(DynamoDb.Ok.Read.AttrReader{Microsoft.FSharp.Core.FSharpResult{``0,``1}},Microsoft.FSharp.Core.FSharpFunc{``0,``2})">
+<summary>
+ pass ARR into map
+</summary>
+</member>
+</members>
+</doc>
