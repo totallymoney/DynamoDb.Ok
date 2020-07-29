@@ -663,7 +663,7 @@ module Read =
                      KeyConditionExpression = expression,
                      ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
                      ScanIndexForward = defaultArg scanIndexForward true,
-                     IndexName = defaultArg indexName String.Empty,
+                     IndexName = defaultArg indexName null,
                      ExclusiveStartKey =
                          (defaultArg exclusiveStartKey []
                           |> AttrMapping.mapAttrsToDictionary))
