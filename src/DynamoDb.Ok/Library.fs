@@ -95,6 +95,7 @@ module AsyncResult =
     let map f m =
         async {
             let! r = m
+
             match r with
             | Ok a -> return Ok(f a)
             | Error e -> return Error e
@@ -103,6 +104,7 @@ module AsyncResult =
     let bind f m =
         async {
             let! r = m
+
             match r with
             | Ok a -> return! f a
             | Error e -> return Error e
@@ -145,7 +147,10 @@ module ExpressionAttributeName =
 
     let getExpAttrName attributes value =
         let getAlphabetLetter =
-            (+) 64 >> char >> string >> fun s -> s.ToLower()
+            (+) 64
+            >> char
+            >> string
+            >> fun s -> s.ToLower()
 
         let attributeName =
             List.length attributes
@@ -328,8 +333,8 @@ module Write =
 
         let (|Success|Retry|GiveUp|) =
             function
-            | u:Dictionary<_,_>, a when u.Count > 0 && a > 3 -> GiveUp
-            | u, a when u.Count > 0 -> Retry (u, a * 100)
+            | u: Dictionary<_, _>, a when u.Count > 0 && a > 3 -> GiveUp
+            | u, a when u.Count > 0 -> Retry(u, a * 100)
             | _ -> Success
 
         let rec write attempt items: Async<Result<Unit, DynamoDbError list>> =
@@ -455,7 +460,10 @@ module Read =
         let retn a = AttrReader(fun _ -> a)
 
         let bind f ra =
-            AttrReader(fun m -> run ra m |> f |> fun rb -> run rb m)
+            AttrReader(fun m ->
+                run ra m
+                |> f
+                |> fun rb -> run rb m)
 
         let map f r = AttrReader(run r >> f)
 
@@ -645,8 +653,15 @@ module Read =
 
     [<AbstractClass>]
     type Read private () =
-        static member Query(client: AmazonDynamoDBClient, tableName, reader, kce, ?indexName, ?limit, ?scanIndexForward,
-                            ?exclusiveStartKey, ?consistentRead) =
+        static member Query(client: AmazonDynamoDBClient,
+                            tableName,
+                            reader,
+                            kce,
+                            ?indexName,
+                            ?limit,
+                            ?scanIndexForward,
+                            ?exclusiveStartKey,
+                            ?consistentRead) =
             // not yet supported:
             // ProjectionExpression
             // FilterExpression
@@ -690,7 +705,7 @@ module Read =
              >> Result.map (fun r -> toMap r.Item)
              >> Result.bind (AttrReader.run reader))
 
-    let tryGetItem (client: AmazonDynamoDBClient) tableName (reader: AttrReader<Result<'a,list<DynamoDbError>>>) fields =
+    let tryGetItem (client: AmazonDynamoDBClient) tableName (reader: AttrReader<Result<'a, list<DynamoDbError>>>) fields =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.GetItemAsync
         |> Async.AwaitTask
@@ -698,10 +713,11 @@ module Read =
         |> Async.map
             (DynamoDbError.handleAsyncError
              >> Result.bind (fun r ->
-                toMap r.Item
-                |> fun m ->
-                    if Map.isEmpty m then Ok None
-                    else AttrReader.run reader m |> Result.map Some))
+                 toMap r.Item
+                 |> fun m ->
+                     if Map.isEmpty m
+                     then Ok None
+                     else AttrReader.run reader m |> Result.map Some))
 
     let doesItemExist (client: AmazonDynamoDBClient) tableName fields =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
