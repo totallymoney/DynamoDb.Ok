@@ -328,9 +328,9 @@ module Write =
 
         let (|Success|Retry|GiveUp|) =
             function
-            | true, true -> Retry
-            | true, false -> GiveUp
-            | false, _ -> Success
+            | u:Dictionary<_,_>, a when u.Count > 0 && a > 3 -> GiveUp
+            | u, a when u.Count > 0 -> Retry (u, a * 100)
+            | _ -> Success
 
         let rec write attempt items: Async<Result<Unit, DynamoDbError list>> =
             new BatchWriteItemRequest(RequestItems = items)
@@ -339,13 +339,13 @@ module Write =
             |> Async.Catch
             |> Async.map DynamoDbError.handleAsyncError
             |> AsyncResult.bind (fun r ->
-                match r.UnprocessedItems.Count > 0, attempt < 3 with
+                match r.UnprocessedItems, attempt with
                 | Success -> AsyncResult.retn ()
                 | GiveUp -> Async.retn (Error [ UnprocessedItemsError ])
-                | Retry ->
-                    Async.Sleep(attempt * 100)
+                | Retry (unprocessedItems, sleep) ->
+                    Async.Sleep sleep
                     |> Async.map Ok
-                    |> AsyncResult.bind (fun _ -> write (attempt + 1) r.UnprocessedItems))
+                    |> AsyncResult.bind (fun _ -> write (attempt + 1) unprocessedItems))
 
         List.map
             (AttrMapping.mapAttrsToDictionary
@@ -689,6 +689,19 @@ module Read =
             (DynamoDbError.handleAsyncError
              >> Result.map (fun r -> toMap r.Item)
              >> Result.bind (AttrReader.run reader))
+
+    let tryGetItem (client: AmazonDynamoDBClient) tableName (reader: AttrReader<Result<'a,list<DynamoDbError>>>) fields =
+        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.GetItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map
+            (DynamoDbError.handleAsyncError
+             >> Result.bind (fun r ->
+                toMap r.Item
+                |> fun m ->
+                    if Map.isEmpty m then Ok None
+                    else AttrReader.run reader m |> Result.map Some))
 
     let doesItemExist (client: AmazonDynamoDBClient) tableName fields =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
