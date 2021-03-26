@@ -28,9 +28,9 @@ and AttrValue =
 
 and NonEmptyList<'a when 'a: comparison> = NonEmptyList of head: 'a * tail: 'a list
 
-type private A = AttributeValue
+type A = AttributeValue
 
-module private AttrMapping =
+module AttrMapping =
 
     let toSet (NonEmptyList (head, tail)) = Set.ofList tail |> Set.add head
 
