@@ -288,8 +288,9 @@ module Write =
 
         type UpdateExpression =
             | Set of key: String * value: AttrValue
+            | Increment of key: String * qty: Int32
             | Remove of key: String
-
+        
         let private getAttributeName = ExpressionAttributeName.getExpAttrName
 
         let private joinSpace (l: String list) = String.Join(" ", l)
@@ -299,6 +300,15 @@ module Write =
         let buildUpdateExpression updateExpressions attributes =
             let folder (sets, removes, attributes) =
                 function
+                | Increment (key, qty) ->
+                    let attributeName, attributes = getAttributeName attributes (ScalarInt32 qty)
+
+                    let exp =
+                        match sets with
+                        | [] -> sprintf "SET %s = %s + %s" key key attributeName
+                        | _ -> sprintf "%s = %s + %s" key key attributeName
+
+                    exp :: sets, removes, attributes
                 | Set (key, value) ->
                     let attributeName, attributes = getAttributeName attributes value
 
