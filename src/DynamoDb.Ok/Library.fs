@@ -302,11 +302,12 @@ module Write =
                 function
                 | Increment (key, qty) ->
                     let attributeName, attributes = getAttributeName attributes (ScalarInt32 qty)
+                    let attributeNameDefault, attributes = getAttributeName attributes (ScalarInt32 0)
 
                     let exp =
                         match sets with
-                        | [] -> sprintf "SET %s = %s + %s" key key attributeName
-                        | _ -> sprintf "%s = %s + %s" key key attributeName
+                        | [] -> sprintf "SET %s = %s + if_not_exists(%s, %s)" key attributeName key attributeNameDefault
+                        | _ -> sprintf "     %s = %s + if_not_exists(%s, %s)" key attributeName key attributeNameDefault
 
                     exp :: sets, removes, attributes
                 | Set (key, value) ->
@@ -333,8 +334,8 @@ module Write =
                 if not <| List.isEmpty l then List.rev l |> joinComma |> Some else None
 
             let exp =
-                [ join sets; join removes ]
-                |> List.choose id
+                [ sets; removes ]
+                |> List.choose join
                 |> joinSpace
 
             exp, attributes
