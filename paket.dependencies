@@ -1,7 +1,7 @@
 source https://api.nuget.org/v3/index.json
 
-storage: none
-framework: netcoreapp3.1, netstandard2.0, netstandard2.1
+storage none
+framework auto-detect
 
 nuget AWSSDK.DynamoDBv2
 nuget FSharp.Core
@@ -11,9 +11,8 @@ nuget Expecto.FsCheck
 
 group Docs
   source https://api.nuget.org/v3/index.json
-
-  framework: netstandard2.0
-  storage: symlink
+  framework auto-detect
+  storage symlink
 
   nuget FSharp.Compiler.Service ~> 35.0
   nuget FSharp.Formatting ~> 4.1
