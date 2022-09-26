@@ -34,8 +34,10 @@ run it in Visual Studio or MonoDevelop).
 
 /// The Hello World of functional languages!
 let rec factorial x =
-  if x = 0 then 1
-  else x * (factorial (x - 1))
+    if x = 0 then
+        1
+    else
+        x * (factorial (x - 1))
 
 let f10 = factorial 10
 
@@ -79,8 +81,7 @@ it uses `laterFunction`:
 Then we can explain how `laterFunction` is defined:
 *)
 
-let laterFunction() =
-  "Not very difficult, is it?"
+let laterFunction () = "Not very difficult, is it?"
 
 (**
 This example covers pretty much all features that are
@@ -93,6 +94,4 @@ features or report bugs!
 *)
 
 (*** define:later-bit ***)
-let sample =
-  laterFunction()
-  |> printfn "Got: %s"
+let sample = laterFunction () |> printfn "Got: %s"

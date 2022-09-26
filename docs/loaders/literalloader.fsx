@@ -1,10 +1,12 @@
 open System
+
 #r "../_lib/Fornax.Core.dll"
 #r "../../packages/docs/FSharp.Formatting/lib/netstandard2.0/FSharp.CodeFormat.dll"
 #r "../../packages/docs/FSharp.Formatting/lib/netstandard2.0/FSharp.Markdown.dll"
 #r "../../packages/docs/FSharp.Formatting/lib/netstandard2.0/FSharp.Literate.dll"
 #if !FORNAX
 #load "contentloader.fsx"
+
 open Contentloader
 #endif
 
@@ -41,16 +43,16 @@ let tokenToCss (x: TokenKind) =
 
 
 
-let isSeparator (input : string) =
-    input.StartsWith "---"
+let isSeparator (input: string) = input.StartsWith "---"
 
 
 ///`fileContent` - content of page to parse. Usually whole content of `.md` file
 ///returns content of config that should be used for the page
-let getConfig' (fileContent : string)  =
+let getConfig' (fileContent: string) =
     let fileContent = fileContent.Split '\n'
     let fileContent = fileContent |> Array.skip 2 //First line must be (*, second line must be ---
     let indexOfSeperator = (fileContent |> Array.findIndex isSeparator) + 1
+
     fileContent
     |> Array.splitAt indexOfSeperator
     |> fst
@@ -58,7 +60,7 @@ let getConfig' (fileContent : string)  =
 
 ///`fileContent` - content of page to parse. Usually whole content of `.fsx` file
 ///returns HTML version of content of the page
-let getContent' (fileContent : string) (fn: string) =
+let getContent' (fileContent: string) (fn: string) =
     let fileContent = fileContent.Split '\n'
     let fileContent = fileContent |> Array.skip 2 //First line must be (*, second line must be ---
     let indexOfSeperator = (fileContent |> Array.findIndex isSeparator) + 1
@@ -66,17 +68,18 @@ let getContent' (fileContent : string) (fn: string) =
 
     let content = content |> Array.skip 1 |> String.concat "\n"
     let doc = Literate.ParseScriptFile fn
-    let ps =
-         doc.Paragraphs
-        |> List.skip 3 //Skip opening ---, config content, and closing ---
+    let ps = doc.Paragraphs |> List.skip 3 //Skip opening ---, config content, and closing ---
     let doc = doc.With(paragraphs = ps)
-    let html = Literate.WriteHtml(doc, lineNumbers = false, tokenKindToCss = tokenToCss)
-                       .Replace("lang=\"fsharp", "class=\"language-fsharp")
+
+    let html =
+        Literate
+            .WriteHtml(doc, lineNumbers = false, tokenKindToCss = tokenToCss)
+            .Replace("lang=\"fsharp", "class=\"language-fsharp")
+
     content, html
 
 
-let trimString (str : string) =
-    str.Trim().TrimEnd('"').TrimStart('"')
+let trimString (str: string) = str.Trim().TrimEnd('"').TrimStart('"')
 
 let relative toPath fromPath =
     let toUri = Uri(toPath)
@@ -86,32 +89,55 @@ let relative toPath fromPath =
 let loadFile projectRoot n =
     let text = System.IO.File.ReadAllText n
 
-    let config = (getConfig' text).Split( '\n') |> List.ofArray
+    let config = (getConfig' text).Split('\n') |> List.ofArray
 
     let (text, content) = getContent' text n
 
-    let file = relative (Path.Combine(projectRoot, "content") + string Path.DirectorySeparatorChar) n
+    let file =
+        relative
+            (Path.Combine(projectRoot, "content")
+             + string Path.DirectorySeparatorChar)
+            n
+
     let link = Path.ChangeExtension(file, ".html")
 
-    let title = config |> List.find (fun n -> n.ToLower().StartsWith "title" ) |> fun n -> n.Split(':').[1] |> trimString
+    let title =
+        config
+        |> List.find (fun n -> n.ToLower().StartsWith "title")
+        |> fun n -> n.Split(':').[1] |> trimString
 
     let menu_order =
         try
-            let n = config |> List.find (fun n -> n.ToLower().StartsWith "menu_order" )
-            n.Split(':').[1] |> trimString |> System.Int32.Parse
+            let n =
+                config
+                |> List.find (fun n -> n.ToLower().StartsWith "menu_order")
+
+            n.Split(':').[1]
+            |> trimString
+            |> System.Int32.Parse
         with
         | _ -> 10
 
     let hide =
         try
-            let n = config |> List.find (fun n -> n.ToLower().StartsWith "hide_menu" )
-            n.Split(':').[1] |> trimString |> System.Boolean.Parse
+            let n =
+                config
+                |> List.find (fun n -> n.ToLower().StartsWith "hide_menu")
+
+            n.Split(':').[1]
+            |> trimString
+            |> System.Boolean.Parse
         with
         | _ -> false
 
     let category =
-        let n = config |> List.find (fun n -> n.ToLower().StartsWith "category" )
-        n.Split(':').[1] |> trimString |> PostCategory.Parse
+        let n =
+            config
+            |> List.find (fun n -> n.ToLower().StartsWith "category")
+
+        n.Split(':').[1]
+        |> trimString
+        |> PostCategory.Parse
 
 
     { file = file
@@ -126,17 +152,16 @@ let loadFile projectRoot n =
 let loader (projectRoot: string) (siteContet: SiteContents) =
     try
         let postsPath = System.IO.Path.Combine(projectRoot, "content")
+
         let posts =
-            Directory.GetFiles(postsPath, "*", SearchOption.AllDirectories )
+            Directory.GetFiles(postsPath, "*", SearchOption.AllDirectories)
             |> Array.filter (fun n -> n.EndsWith ".fsx")
             |> Array.map (loadFile projectRoot)
 
-        posts
-        |> Array.iter (fun p -> siteContet.Add p)
+        posts |> Array.iter (fun p -> siteContet.Add p)
 
-        siteContet.Add({disableLiveRefresh = true})
+        siteContet.Add({ disableLiveRefresh = true })
     with
     | ex -> printfn "EX: %A" ex
 
     siteContet
-

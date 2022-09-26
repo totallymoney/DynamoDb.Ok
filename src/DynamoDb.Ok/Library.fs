@@ -53,14 +53,12 @@ module AttrMapping =
 
     and mapAttr (Attr (name, value)) = name, mapAttrValue value
 
-    and mapAttrsToDictionary =
-        List.map mapAttr >> dict >> Dictionary<string, A>
+    and mapAttrsToDictionary = List.map mapAttr >> dict >> Dictionary<string, A>
 
     and toGzipMemoryStream (s: string) =
         let output = new MemoryStream()
 
-        use zipStream =
-            new GZipStream(output, CompressionMode.Compress, true)
+        use zipStream = new GZipStream(output, CompressionMode.Compress, true)
 
         use writer = new StreamWriter(zipStream)
         writer.Write s
@@ -146,15 +144,10 @@ module Expiry =
 module ExpressionAttributeName =
 
     let getExpAttrName attributes value =
-        let getAlphabetLetter =
-            (+) 64
-            >> char
-            >> string
-            >> fun s -> s.ToLower()
+        let getAlphabetLetter = (+) 64 >> char >> string >> (fun s -> s.ToLower())
 
         let attributeName =
-            List.length attributes
-            + 1
+            List.length attributes + 1
             |> getAlphabetLetter
             |> sprintf ":%s"
 
@@ -254,8 +247,7 @@ module Write =
                 let startAttributeName, attributes =
                     getAttributeName attributes (ScalarDecimal start)
 
-                let endAttributeName, attributes =
-                    getAttributeName attributes (ScalarDecimal end_)
+                let endAttributeName, attributes = getAttributeName attributes (ScalarDecimal end_)
 
                 sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
             | StringIn (key, values) -> csvAttributes attributes key values ScalarString "%s IN (%s)"
@@ -278,8 +270,11 @@ module Write =
         let catch =
             function
             | Choice1Of2 _ -> Ok()
-            | Choice2Of2 (e: exn) when (e :? AggregateException
-                                        && e.InnerException :? ConditionalCheckFailedException) -> Ok()
+            | Choice2Of2 (e: exn) when
+                (e :? AggregateException
+                 && e.InnerException :? ConditionalCheckFailedException)
+                ->
+                Ok()
             | Choice2Of2 (e: exn) when (e :? AggregateException) -> Error [ OperationError e.InnerException ]
             | Choice2Of2 (e: exn) -> Error [ OperationError e ]
 
@@ -290,7 +285,7 @@ module Write =
             | Set of key: String * value: AttrValue
             | Increment of key: String * qty: Int32
             | Remove of key: String
-        
+
         let private getAttributeName = ExpressionAttributeName.getExpAttrName
 
         let private joinSpace (l: String list) = String.Join(" ", l)
@@ -331,12 +326,12 @@ module Write =
                 List.fold folder ([], [], attributes) updateExpressions
 
             let join l =
-                if not <| List.isEmpty l then List.rev l |> joinComma |> Some else None
+                if not <| List.isEmpty l then
+                    List.rev l |> joinComma |> Some
+                else
+                    None
 
-            let exp =
-                [ sets; removes ]
-                |> List.choose join
-                |> joinSpace
+            let exp = [ sets; removes ] |> List.choose join |> joinSpace
 
             exp, attributes
 
@@ -348,7 +343,7 @@ module Write =
             | u, a when u.Count > 0 -> Retry(u, a * 100)
             | _ -> Success
 
-        let rec write attempt items: Async<Result<Unit, DynamoDbError list>> =
+        let rec write attempt items : Async<Result<Unit, DynamoDbError list>> =
             new BatchWriteItemRequest(RequestItems = items)
             |> client.BatchWriteItemAsync
             |> Async.AwaitTask
@@ -363,10 +358,11 @@ module Write =
                     |> Async.map Ok
                     |> AsyncResult.bind (fun _ -> write (attempt + 1) unprocessedItems))
 
-        List.map
-            (AttrMapping.mapAttrsToDictionary
-             >> fun a -> new PutRequest(Item = a)
-             >> fun r -> new WriteRequest(PutRequest = r))
+        List.map (
+            AttrMapping.mapAttrsToDictionary
+            >> fun a -> new PutRequest(Item = a)
+            >> fun r -> new WriteRequest(PutRequest = r)
+        )
         >> fun reqs -> [ tableName, ResizeArray reqs ]
         >> dict
         >> Dictionary<string, ResizeArray<WriteRequest>>
@@ -377,9 +373,10 @@ module Write =
         |> client.DeleteItemAsync
         |> Async.AwaitTask
         |> Async.Catch
-        |> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.map ignore)
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.map ignore
+        )
 
     module BuildAttr =
 
@@ -399,7 +396,10 @@ module Write =
             | _ -> []
 
         let string name s =
-            if String.IsNullOrEmpty s then [] else [ Attr(name, ScalarString s) ]
+            if String.IsNullOrEmpty s then
+                []
+            else
+                [ Attr(name, ScalarString s) ]
 
         let docList name =
             function
@@ -419,12 +419,15 @@ type Write private () =
     static member PutItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
 
         match conditionExpression
-              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce []) with
+              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce [])
+            with
         | Some (exp, attrs) ->
-            new PutItemRequest(tableName,
-                               AttrMapping.mapAttrsToDictionary fields,
-                               ConditionExpression = exp,
-                               ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs)
+            new PutItemRequest(
+                tableName,
+                AttrMapping.mapAttrsToDictionary fields,
+                ConditionExpression = exp,
+                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
+            )
         | None -> new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
 
         |> client.PutItemAsync
@@ -438,20 +441,25 @@ type Write private () =
             Write.UpdateExpression.buildUpdateExpression updateExpression []
 
         match conditionExpression
-              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce attributes) with
+              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce attributes)
+            with
         | Some (exp, attributes) ->
-            new UpdateItemRequest(tableName,
-                                  AttrMapping.mapAttrsToDictionary key,
-                                  null,
-                                  UpdateExpression = updateExp,
-                                  ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
-                                  ConditionExpression = exp)
+            new UpdateItemRequest(
+                tableName,
+                AttrMapping.mapAttrsToDictionary key,
+                null,
+                UpdateExpression = updateExp,
+                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
+                ConditionExpression = exp
+            )
         | None ->
-            new UpdateItemRequest(tableName,
-                                  AttrMapping.mapAttrsToDictionary key,
-                                  null,
-                                  UpdateExpression = updateExp,
-                                  ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes)
+            new UpdateItemRequest(
+                tableName,
+                AttrMapping.mapAttrsToDictionary key,
+                null,
+                UpdateExpression = updateExp,
+                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes
+            )
 
         |> client.UpdateItemAsync
         |> Async.AwaitTask
@@ -471,10 +479,7 @@ module Read =
         let retn a = AttrReader(fun _ -> a)
 
         let bind f ra =
-            AttrReader(fun m ->
-                run ra m
-                |> f
-                |> fun rb -> run rb m)
+            AttrReader(fun m -> run ra m |> f |> (fun rb -> run rb m))
 
         let map f r = AttrReader(run r >> f)
 
@@ -491,7 +496,7 @@ module Read =
             |> fun f r -> AttrReader(AttrReader.run r >> f)
 
         let bind f r =
-            AttrReader(fun b ->
+            AttrReader (fun b ->
                 AttrReader.run r b
                 |> Result.bind (fun a -> AttrReader.run (f a) b))
 
@@ -579,7 +584,8 @@ module Read =
     let (@>-) r typ = r >- List.map typ
 
     /// pass ARR list into Result returing f (e.g. Parse.*)
-    let (@>->) r (typ, f) = r >-> (List.map typ >> traverseResult f)
+    let (@>->) r (typ, f) =
+        r >-> (List.map typ >> traverseResult f)
 
     /// pass ARR option list into map
     let (?@>-) r f = r >- Option.map (List.map f)
@@ -612,7 +618,8 @@ module Read =
                 | NumberGreaterThanOrEqualTo of key: String * value: Decimal
                 | NumberBetwixt of key: String * value: Decimal * Decimal
 
-            and KeyConditionExpression = KeyConditionExpression of KeyCondition * (BoolOperator * KeyConditionExpression) list
+            and KeyConditionExpression =
+                | KeyConditionExpression of KeyCondition * (BoolOperator * KeyConditionExpression) list
 
             and BoolOperator =
                 | And
@@ -644,8 +651,7 @@ module Read =
                     let startAttributeName, attributes =
                         getAttributeName attributes (ScalarDecimal start)
 
-                    let endAttributeName, attributes =
-                        getAttributeName attributes (ScalarDecimal end_)
+                    let endAttributeName, attributes = getAttributeName attributes (ScalarDecimal end_)
 
                     sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
 
@@ -653,8 +659,7 @@ module Read =
                 let init = keyConditionToString attributes kc
 
                 let folder (acc, attributes) (operator, kce) =
-                    let exp, attributes =
-                        buildKeyConditionExpression kce attributes
+                    let exp, attributes = buildKeyConditionExpression kce attributes
 
                     let bool = boolOperatorToExpression operator
                     sprintf "%s %s (%s)" acc bool exp, attributes
@@ -664,15 +669,18 @@ module Read =
 
     [<AbstractClass>]
     type Read private () =
-        static member Query(client: AmazonDynamoDBClient,
-                            tableName,
-                            reader,
-                            kce,
-                            ?indexName,
-                            ?limit,
-                            ?scanIndexForward,
-                            ?exclusiveStartKey,
-                            ?consistentRead) =
+        static member Query
+            (
+                client: AmazonDynamoDBClient,
+                tableName,
+                reader,
+                kce,
+                ?indexName,
+                ?limit,
+                ?scanIndexForward,
+                ?exclusiveStartKey,
+                ?consistentRead
+            ) =
             // not yet supported:
             // ProjectionExpression
             // FilterExpression
@@ -681,18 +689,20 @@ module Read =
                 Query.KeyConditionExpression.buildKeyConditionExpression kce []
 
             let setOptionalProperty obj prop setter =
-                if Option.isSome prop then setter obj prop.Value
+                if Option.isSome prop then
+                    setter obj prop.Value
 
             let queryRequest =
-                QueryRequest
-                    (tableName,
-                     KeyConditionExpression = expression,
-                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
-                     ScanIndexForward = defaultArg scanIndexForward true,
-                     IndexName = defaultArg indexName null,
-                     ExclusiveStartKey =
-                         (defaultArg exclusiveStartKey []
-                          |> AttrMapping.mapAttrsToDictionary))
+                QueryRequest(
+                    tableName,
+                    KeyConditionExpression = expression,
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
+                    ScanIndexForward = defaultArg scanIndexForward true,
+                    IndexName = defaultArg indexName null,
+                    ExclusiveStartKey =
+                        (defaultArg exclusiveStartKey []
+                         |> AttrMapping.mapAttrsToDictionary)
+                )
 
             setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
             setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
@@ -701,43 +711,53 @@ module Read =
             |> client.QueryAsync
             |> Async.AwaitTask
             |> Async.Catch
-            |> Async.map
-                (DynamoDbError.handleAsyncError
-                 >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
-                 >> Result.bind (traverseResult (AttrReader.run reader)))
+            |> Async.map (
+                DynamoDbError.handleAsyncError
+                >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
+                >> Result.bind (traverseResult (AttrReader.run reader))
+            )
 
     let getItem (client: AmazonDynamoDBClient) tableName reader fields =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.GetItemAsync
         |> Async.AwaitTask
         |> Async.Catch
-        |> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.map (fun r -> toMap r.Item)
-             >> Result.bind (AttrReader.run reader))
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.map (fun r -> toMap r.Item)
+            >> Result.bind (AttrReader.run reader)
+        )
 
-    let tryGetItem (client: AmazonDynamoDBClient) tableName (reader: AttrReader<Result<'a, list<DynamoDbError>>>) fields =
+    let tryGetItem
+        (client: AmazonDynamoDBClient)
+        tableName
+        (reader: AttrReader<Result<'a, list<DynamoDbError>>>)
+        fields
+        =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.GetItemAsync
         |> Async.AwaitTask
         |> Async.Catch
-        |> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.bind (fun r ->
-                 toMap r.Item
-                 |> fun m ->
-                     if Map.isEmpty m
-                     then Ok None
-                     else AttrReader.run reader m |> Result.map Some))
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.bind (fun r ->
+                toMap r.Item
+                |> fun m ->
+                    if Map.isEmpty m then
+                        Ok None
+                    else
+                        AttrReader.run reader m |> Result.map Some)
+        )
 
     let doesItemExist (client: AmazonDynamoDBClient) tableName fields =
         new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.GetItemAsync
         |> Async.AwaitTask
         |> Async.Catch
-        |> Async.map
-            (DynamoDbError.handleAsyncError
-             >> Result.map (fun r -> toMap r.Item |> Map.isEmpty |> not))
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.map (fun r -> toMap r.Item |> Map.isEmpty |> not)
+        )
 
 
 
@@ -807,8 +827,7 @@ module Example =
     let buildInny x y = { X = x; Y = y }
 
     let innyReader =
-        buildInny
-        <!> (req "x" A.string)
+        buildInny <!> (req "x" A.string)
         <*> (req "y" A.string >-> P.decimal)
 
     type Outty =
@@ -831,8 +850,7 @@ module Example =
 
 
     let outtyReader =
-        buildOutty
-        <!> (req "f" A.string)
+        buildOutty <!> (req "f" A.string)
         <*> (req "g" A.string >-> P.dateTime)
         <*> (req "i" A.docMap >-> R.run innyReader)
         <*> (req "h" A.docList
