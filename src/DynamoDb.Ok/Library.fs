@@ -126,12 +126,26 @@ module DynamoDbError =
     let flatten =
         List.fold (fun acc e -> sprintf "%s\n%s" acc (toString e)) String.Empty
 
+    let private (|AggregrateInnerExn|_|) (e: exn) =
+        match e :? AggregateException with
+        | true -> Some e.InnerException
+        | _ -> None
+
     let handleAsyncError =
         function
         | Choice1Of2 x -> Ok x
-        | Choice2Of2 (e: exn) when (e :? ConditionalCheckFailedException) -> Error [ OperationError e.InnerException ]
-        | Choice2Of2 (e: exn) when (e :? AggregateException) -> Error [ OperationError e.InnerException ]
-        | Choice2Of2 (e: exn) -> Error [ OperationError e ]
+        | Choice2Of2 (AggregrateInnerExn e)
+        | Choice2Of2 e -> Error [ OperationError e ]
+
+    let private (|ConditionalCheckFailedExn|_|) (e: exn) =
+        match e :? ConditionalCheckFailedException with
+        | true -> Some(e :?> ConditionalCheckFailedException)
+        | _ -> None
+
+    let handleConditionCheckError onConditionCheckFailed =
+        function
+        | Choice2Of2 (AggregrateInnerExn (ConditionalCheckFailedExn e)) -> onConditionCheckFailed e
+        | c -> handleAsyncError c
 
 module Expiry =
 
@@ -267,17 +281,7 @@ module Write =
 
             List.fold folder init additionalConditions
 
-        let catch =
-            function
-            | Choice1Of2 _ -> Ok()
-            | Choice2Of2 (e: exn) when
-                (e :? AggregateException
-                 && e.InnerException :? ConditionalCheckFailedException)
-                ->
-                Ok()
-            | Choice2Of2 (e: exn) when (e :? AggregateException) -> Error [ OperationError e.InnerException ]
-            | Choice2Of2 (e: exn) -> Error [ OperationError e ]
-
+        let (|BuildConditionExpression|) attrs ce = buildConditionExpression ce attrs
 
     module UpdateExpression =
 
@@ -335,49 +339,6 @@ module Write =
 
             exp, attributes
 
-    let putItems (client: AmazonDynamoDBClient) tableName =
-
-        let (|Success|Retry|GiveUp|) =
-            function
-            | u: Dictionary<_, _>, a when u.Count > 0 && a > 3 -> GiveUp
-            | u, a when u.Count > 0 -> Retry(u, a * 100)
-            | _ -> Success
-
-        let rec write attempt items : Async<Result<Unit, DynamoDbError list>> =
-            new BatchWriteItemRequest(RequestItems = items)
-            |> client.BatchWriteItemAsync
-            |> Async.AwaitTask
-            |> Async.Catch
-            |> Async.map DynamoDbError.handleAsyncError
-            |> AsyncResult.bind (fun r ->
-                match r.UnprocessedItems, attempt with
-                | Success -> AsyncResult.retn ()
-                | GiveUp -> Async.retn (Error [ UnprocessedItemsError ])
-                | Retry (unprocessedItems, sleep) ->
-                    Async.Sleep sleep
-                    |> Async.map Ok
-                    |> AsyncResult.bind (fun _ -> write (attempt + 1) unprocessedItems))
-
-        List.map (
-            AttrMapping.mapAttrsToDictionary
-            >> fun a -> new PutRequest(Item = a)
-            >> fun r -> new WriteRequest(PutRequest = r)
-        )
-        >> fun reqs -> [ tableName, ResizeArray reqs ]
-        >> dict
-        >> Dictionary<string, ResizeArray<WriteRequest>>
-        >> write 0
-
-    let deleteItem (client: AmazonDynamoDBClient) tableName fields =
-        new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-        |> client.DeleteItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map (
-            DynamoDbError.handleAsyncError
-            >> Result.map ignore
-        )
-
     module BuildAttr =
 
         let optional name attr =
@@ -413,64 +374,144 @@ module Write =
             | Some s -> attr s
             | None -> ScalarNull
 
+    module BackOffRetry =
+
+        type AttemptCount = int
+        type SleepMs = int
+
+        type Strategy =
+            { MaxAttempts: int
+              Sleep: AttemptCount -> SleepMs }
+
+        let defaultStrategy =
+            { MaxAttempts = 3
+              Sleep = fun attempts -> attempts * 100 }
+
 [<AbstractClass>]
 type Write private () =
 
+    static member DeleteItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
+        conditionExpression
+        |> function
+            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs), onConditionCheckFail) ->
+                new DeleteItemRequest(
+                    tableName,
+                    AttrMapping.mapAttrsToDictionary fields,
+                    ConditionExpression = exp,
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
+                )
+                |> client.DeleteItemAsync
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.map (DynamoDbError.handleConditionCheckError onConditionCheckFail)
+            | None ->
+                new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+                |> client.DeleteItemAsync
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.map DynamoDbError.handleAsyncError
+
     static member PutItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
-
-        match conditionExpression
-              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce [])
-            with
-        | Some (exp, attrs) ->
-            new PutItemRequest(
-                tableName,
-                AttrMapping.mapAttrsToDictionary fields,
-                ConditionExpression = exp,
-                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
-            )
-        | None -> new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-
-        |> client.PutItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map Write.ConditionExpression.catch
+        conditionExpression
+        |> function
+            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs), onConditionCheckFail) ->
+                new PutItemRequest(
+                    tableName,
+                    AttrMapping.mapAttrsToDictionary fields,
+                    ConditionExpression = exp,
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
+                )
+                |> client.PutItemAsync
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.map (DynamoDbError.handleConditionCheckError onConditionCheckFail)
+            | None ->
+                new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+                |> client.PutItemAsync
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.map DynamoDbError.handleAsyncError
 
     static member UpdateItem(client: AmazonDynamoDBClient, tableName, key, updateExpression, ?conditionExpression) =
-
         let updateExp, attributes =
             Write.UpdateExpression.buildUpdateExpression updateExpression []
 
-        match conditionExpression
-              |> Option.map (fun ce -> Write.ConditionExpression.buildConditionExpression ce attributes)
-            with
-        | Some (exp, attributes) ->
-            new UpdateItemRequest(
-                tableName,
-                AttrMapping.mapAttrsToDictionary key,
-                null,
-                UpdateExpression = updateExp,
-                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
-                ConditionExpression = exp
-            )
-        | None ->
-            new UpdateItemRequest(
-                tableName,
-                AttrMapping.mapAttrsToDictionary key,
-                null,
-                UpdateExpression = updateExp,
-                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes
-            )
+        conditionExpression
+        |> function
+            | Some (Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes),
+                    onConditionCheckFail) ->
+                new UpdateItemRequest(
+                    tableName,
+                    AttrMapping.mapAttrsToDictionary key,
+                    null,
+                    UpdateExpression = updateExp,
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
+                    ConditionExpression = exp
+                )
+                |> client.UpdateItemAsync
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.map (DynamoDbError.handleConditionCheckError onConditionCheckFail)
+            | None ->
+                new UpdateItemRequest(
+                    tableName,
+                    AttrMapping.mapAttrsToDictionary key,
+                    null,
+                    UpdateExpression = updateExp,
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes
+                )
+                |> client.UpdateItemAsync
+                |> Async.AwaitTask
+                |> Async.Catch
+                |> Async.map (DynamoDbError.handleAsyncError)
 
-        |> client.UpdateItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map Write.ConditionExpression.catch
+    static member PutItems(client: AmazonDynamoDBClient, tableName, items, ?retryBackOffStrategy) =
+
+        let backOff =
+            Option.defaultValue Write.BackOffRetry.defaultStrategy retryBackOffStrategy
+
+        let (|NonEmptyDict|_|) (d: Dictionary<_, _>) =
+            match d.Count > 0 with
+            | true -> Some d
+            | _ -> None
+
+        let (|Success|Retry|GiveUp|) =
+            function
+            | NonEmptyDict _, attemptCount when attemptCount > backOff.MaxAttempts -> GiveUp
+            | NonEmptyDict u, attemptCount -> Retry(u, backOff.Sleep attemptCount)
+            | _ -> Success
+
+        let rec write attemptCount items : Async<Result<Unit, DynamoDbError list>> =
+            new BatchWriteItemRequest(RequestItems = items)
+            |> client.BatchWriteItemAsync
+            |> Async.AwaitTask
+            |> Async.Catch
+            |> Async.map DynamoDbError.handleAsyncError
+            |> AsyncResult.bind (fun r ->
+                match r.UnprocessedItems, attemptCount with
+                | Success -> AsyncResult.retn ()
+                | GiveUp -> Async.retn (Error [ UnprocessedItemsError ])
+                | Retry (unprocessedItems, sleep) ->
+                    Async.Sleep sleep
+                    |> Async.map Ok
+                    |> AsyncResult.bind (fun _ -> write (attemptCount + 1) unprocessedItems))
+
+        items
+        |> List.map (
+            AttrMapping.mapAttrsToDictionary
+            >> fun a -> new PutRequest(Item = a)
+            >> fun r -> new WriteRequest(PutRequest = r)
+        )
+        |> fun reqs -> [ tableName, ResizeArray reqs ]
+        |> dict
+        |> Dictionary<string, ResizeArray<WriteRequest>>
+        |> write 1
 
 
 module Read =
 
 
-    type AttrReader<'a> = AttrReader of (Map<string, A> -> 'a)
+    type AttrReader<'a> = private AttrReader of (Map<string, A> -> 'a)
 
     module AttrReader =
 
@@ -538,9 +579,9 @@ module Read =
     let attrReaderResult = new AttrReaderResultBuilder()
 
 
-    let private toMap d = Seq.map (|KeyValue|) d |> Map.ofSeq
+    let internal toMap d = Seq.map (|KeyValue|) d |> Map.ofSeq
 
-    let private traverseResult f list =
+    let internal traverseResult f list =
         let folder head tail =
             f head
             |> Result.bind (fun h -> tail |> Result.bind (fun t -> Ok(h :: t)))
@@ -667,100 +708,6 @@ module Read =
                 List.fold folder init additionalConditions
 
 
-    [<AbstractClass>]
-    type Read private () =
-        static member Query
-            (
-                client: AmazonDynamoDBClient,
-                tableName,
-                reader,
-                kce,
-                ?indexName,
-                ?limit,
-                ?scanIndexForward,
-                ?exclusiveStartKey,
-                ?consistentRead
-            ) =
-            // not yet supported:
-            // ProjectionExpression
-            // FilterExpression
-
-            let expression, attrs =
-                Query.KeyConditionExpression.buildKeyConditionExpression kce []
-
-            let setOptionalProperty obj prop setter =
-                if Option.isSome prop then
-                    setter obj prop.Value
-
-            let queryRequest =
-                QueryRequest(
-                    tableName,
-                    KeyConditionExpression = expression,
-                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
-                    ScanIndexForward = defaultArg scanIndexForward true,
-                    IndexName = defaultArg indexName null,
-                    ExclusiveStartKey =
-                        (defaultArg exclusiveStartKey []
-                         |> AttrMapping.mapAttrsToDictionary)
-                )
-
-            setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
-            setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
-
-            queryRequest
-            |> client.QueryAsync
-            |> Async.AwaitTask
-            |> Async.Catch
-            |> Async.map (
-                DynamoDbError.handleAsyncError
-                >> Result.map (fun r -> Seq.map toMap r.Items |> List.ofSeq)
-                >> Result.bind (traverseResult (AttrReader.run reader))
-            )
-
-    let getItem (client: AmazonDynamoDBClient) tableName reader fields =
-        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-        |> client.GetItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map (
-            DynamoDbError.handleAsyncError
-            >> Result.map (fun r -> toMap r.Item)
-            >> Result.bind (AttrReader.run reader)
-        )
-
-    let tryGetItem
-        (client: AmazonDynamoDBClient)
-        tableName
-        (reader: AttrReader<Result<'a, list<DynamoDbError>>>)
-        fields
-        =
-        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-        |> client.GetItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map (
-            DynamoDbError.handleAsyncError
-            >> Result.bind (fun r ->
-                toMap r.Item
-                |> fun m ->
-                    if Map.isEmpty m then
-                        Ok None
-                    else
-                        AttrReader.run reader m |> Result.map Some)
-        )
-
-    let doesItemExist (client: AmazonDynamoDBClient) tableName fields =
-        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-        |> client.GetItemAsync
-        |> Async.AwaitTask
-        |> Async.Catch
-        |> Async.map (
-            DynamoDbError.handleAsyncError
-            >> Result.map (fun r -> toMap r.Item |> Map.isEmpty |> not)
-        )
-
-
-
     module Attribute =
 
         let string (a: A) = a.S
@@ -802,6 +749,97 @@ module Read =
         let int (s: String) =
             Int32.TryParse s
             |> fromByRef (sprintf "could not parse %s as integer" s)
+
+
+module R = Read
+
+[<AbstractClass>]
+type Read private () =
+
+    static member Query
+        (
+            client: AmazonDynamoDBClient,
+            tableName,
+            reader,
+            kce,
+            ?indexName,
+            ?limit,
+            ?scanIndexForward,
+            ?exclusiveStartKey,
+            ?consistentRead
+        ) =
+        // not yet supported:
+        // ProjectionExpression
+        // FilterExpression
+
+        let expression, attrs =
+            Read.Query.KeyConditionExpression.buildKeyConditionExpression kce []
+
+        let setOptionalProperty obj prop setter =
+            if Option.isSome prop then
+                setter obj prop.Value
+
+        let queryRequest =
+            QueryRequest(
+                tableName,
+                KeyConditionExpression = expression,
+                ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
+                ScanIndexForward = defaultArg scanIndexForward true,
+                IndexName = defaultArg indexName null,
+                ExclusiveStartKey =
+                    (defaultArg exclusiveStartKey []
+                     |> AttrMapping.mapAttrsToDictionary)
+            )
+
+        setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
+        setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
+
+        queryRequest
+        |> client.QueryAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.map (fun r -> Seq.map Read.toMap r.Items |> List.ofSeq)
+            >> Result.bind (Read.traverseResult (Read.AttrReader.run reader))
+        )
+
+    static member GetItem(client: AmazonDynamoDBClient, tableName, reader, fields) =
+        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.GetItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.map (fun r -> Read.toMap r.Item)
+            >> Result.bind (Read.AttrReader.run reader)
+        )
+
+    static member TryGetItem(client: AmazonDynamoDBClient, tableName, reader, fields) =
+        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.GetItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.bind (fun r ->
+                Read.toMap r.Item
+                |> fun m ->
+                    if Map.isEmpty m then
+                        Ok None
+                    else
+                        Read.AttrReader.run reader m |> Result.map Some)
+        )
+
+    static member DoesItemExist(client: AmazonDynamoDBClient, tableName, fields) =
+        new GetItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.GetItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map (
+            DynamoDbError.handleAsyncError
+            >> Result.map (fun r -> Read.toMap r.Item |> Map.isEmpty |> not)
+        )
 
 
 
