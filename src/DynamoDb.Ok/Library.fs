@@ -112,6 +112,7 @@ type DynamoDbError =
     | ParseError of attributeName: string
     | MissingAttributeError of attributeName: string
     | OperationError of exn
+    | ConditionFailedError of ConditionalCheckFailedException
     | UnprocessedItemsError
 
 module DynamoDbError =
@@ -121,6 +122,7 @@ module DynamoDbError =
         | ParseError e
         | MissingAttributeError e -> e
         | OperationError e -> string e
+        | ConditionFailedError e -> string e
         | UnprocessedItemsError -> "Unprocessed items in batch operation"
 
     let flatten =
@@ -131,21 +133,17 @@ module DynamoDbError =
         | true -> Some e.InnerException
         | _ -> None
 
-    let handleAsyncError =
-        function
-        | Choice1Of2 x -> Ok x
-        | Choice2Of2 (AggregrateInnerExn e)
-        | Choice2Of2 e -> Error [ OperationError e ]
-
     let private (|ConditionalCheckFailedExn|_|) (e: exn) =
         match e :? ConditionalCheckFailedException with
         | true -> Some(e :?> ConditionalCheckFailedException)
         | _ -> None
 
-    let handleConditionCheckError onConditionCheckFailed =
+    let handleAsyncError =
         function
-        | Choice2Of2 (AggregrateInnerExn (ConditionalCheckFailedExn e)) -> onConditionCheckFailed e
-        | c -> handleAsyncError c
+        | Choice1Of2 x -> Ok x
+        | Choice2Of2 (AggregrateInnerExn (ConditionalCheckFailedExn e)) -> Error [ ConditionFailedError e ]
+        | Choice2Of2 (AggregrateInnerExn e)
+        | Choice2Of2 e -> Error [ OperationError e ]
 
 module Expiry =
 
@@ -393,44 +391,34 @@ type Write private () =
     static member DeleteItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
         conditionExpression
         |> function
-            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs), onConditionCheckFail) ->
+            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
                 new DeleteItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary fields,
                     ConditionExpression = exp,
                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
                 )
-                |> client.DeleteItemAsync
-                |> Async.AwaitTask
-                |> Async.Catch
-                |> Async.map (DynamoDbError.handleConditionCheckError onConditionCheckFail)
-            | None ->
-                new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-                |> client.DeleteItemAsync
-                |> Async.AwaitTask
-                |> Async.Catch
-                |> Async.map DynamoDbError.handleAsyncError
+            | None -> new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.DeleteItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map DynamoDbError.handleAsyncError
 
     static member PutItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
         conditionExpression
         |> function
-            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs), onConditionCheckFail) ->
+            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
                 new PutItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary fields,
                     ConditionExpression = exp,
                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
                 )
-                |> client.PutItemAsync
-                |> Async.AwaitTask
-                |> Async.Catch
-                |> Async.map (DynamoDbError.handleConditionCheckError onConditionCheckFail)
-            | None ->
-                new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
-                |> client.PutItemAsync
-                |> Async.AwaitTask
-                |> Async.Catch
-                |> Async.map DynamoDbError.handleAsyncError
+            | None -> new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
+        |> client.PutItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map DynamoDbError.handleAsyncError
 
     static member UpdateItem(client: AmazonDynamoDBClient, tableName, key, updateExpression, ?conditionExpression) =
         let updateExp, attributes =
@@ -438,8 +426,7 @@ type Write private () =
 
         conditionExpression
         |> function
-            | Some (Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes),
-                    onConditionCheckFail) ->
+            | Some (Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes)) ->
                 new UpdateItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary key,
@@ -448,10 +435,6 @@ type Write private () =
                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
                     ConditionExpression = exp
                 )
-                |> client.UpdateItemAsync
-                |> Async.AwaitTask
-                |> Async.Catch
-                |> Async.map (DynamoDbError.handleConditionCheckError onConditionCheckFail)
             | None ->
                 new UpdateItemRequest(
                     tableName,
@@ -460,10 +443,10 @@ type Write private () =
                     UpdateExpression = updateExp,
                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes
                 )
-                |> client.UpdateItemAsync
-                |> Async.AwaitTask
-                |> Async.Catch
-                |> Async.map (DynamoDbError.handleAsyncError)
+        |> client.UpdateItemAsync
+        |> Async.AwaitTask
+        |> Async.Catch
+        |> Async.map (DynamoDbError.handleAsyncError)
 
     static member PutItems(client: AmazonDynamoDBClient, tableName, items, ?retryBackOffStrategy) =
 
