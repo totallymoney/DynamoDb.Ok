@@ -494,7 +494,7 @@ type Write private () =
 module Read =
 
 
-    type AttrReader<'a> = private AttrReader of (Map<string, A> -> 'a)
+    type AttrReader<'a> = AttrReader of (Map<string, A> -> 'a)
 
     module AttrReader =
 
@@ -734,7 +734,7 @@ module Read =
             |> fromByRef (sprintf "could not parse %s as integer" s)
 
 
-module R = Read
+module AttrReader = Read.AttrReader
 
 [<AbstractClass>]
 type Read private () =
@@ -784,7 +784,7 @@ type Read private () =
         |> Async.map (
             DynamoDbError.handleAsyncError
             >> Result.map (fun r -> Seq.map Read.toMap r.Items |> List.ofSeq)
-            >> Result.bind (Read.traverseResult (Read.AttrReader.run reader))
+            >> Result.bind (Read.traverseResult (AttrReader.run reader))
         )
 
     static member GetItem(client: AmazonDynamoDBClient, tableName, reader, fields) =
@@ -795,7 +795,7 @@ type Read private () =
         |> Async.map (
             DynamoDbError.handleAsyncError
             >> Result.map (fun r -> Read.toMap r.Item)
-            >> Result.bind (Read.AttrReader.run reader)
+            >> Result.bind (AttrReader.run reader)
         )
 
     static member TryGetItem(client: AmazonDynamoDBClient, tableName, reader, fields) =
@@ -811,7 +811,7 @@ type Read private () =
                     if Map.isEmpty m then
                         Ok None
                     else
-                        Read.AttrReader.run reader m |> Result.map Some)
+                        AttrReader.run reader m |> Result.map Some)
         )
 
     static member DoesItemExist(client: AmazonDynamoDBClient, tableName, fields) =
