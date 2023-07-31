@@ -17,7 +17,8 @@ and AttrValue =
     | ScalarBinary of String
     | ScalarBool of Boolean
     | ScalarGuid of Guid
-    | ScalarDate of DateTime
+    | ScalarDateTime of DateTime
+    | ScalarDateTimeOffset of DateTimeOffset
     | ScalarNull
     | SetString of NonEmptyList<String>
     | SetDecimal of NonEmptyList<Decimal>
@@ -38,7 +39,8 @@ module AttrMapping =
         function
         | ScalarString s -> A(S = s)
         | ScalarGuid g -> A(S = string g)
-        | ScalarDate d -> A(S = d.ToString("s"))
+        | ScalarDateTime d -> A(S = d.ToString("s"))
+        | ScalarDateTimeOffset d -> A(S = d.ToString("o"))
         | ScalarInt32 i -> A(N = string i)
         | ScalarDecimal d -> A(N = string d)
         | ScalarBinary b -> A(B = toGzipMemoryStream b)
@@ -150,7 +152,7 @@ module Expiry =
     let private epochTime (d: DateTime) =
         Convert.ToInt32((d - DateTime.UnixEpoch).TotalSeconds)
 
-    let attribute name d = Attr(name, epochTime d |> ScalarInt32)
+    let attribute name d = Attr(name, ScalarInt32(epochTime d))
 
 
 module ExpressionAttributeName =
@@ -558,6 +560,8 @@ module Read =
         member __.ReturnFrom(m: AttrReader<Result<'a, 'b>>) = m
         member __.Bind(f, r) = AttrReaderResult.bind r f
         member __.Zero() = __.Return()
+    // member __.BindReturn(x, f) = AttrReaderResult.map f x
+    // member __.MergeSources(x, f) = AttrReaderResult.apply f x
 
     let attrReaderResult = new AttrReaderResultBuilder()
 
@@ -583,7 +587,6 @@ module Read =
 
     let req key typ =
         AttrReader(Map.tryFind key >> required key >> Result.map typ)
-
 
     let opt key typ =
         AttrReader(Map.tryFind key >> Option.map typ >> Ok)
@@ -712,26 +715,30 @@ module Read =
 
     module Parse =
 
-        let private fromByRef e =
+        let inline private fromByRef e =
             function
             | true, x -> Ok x
             | _ -> Error [ ParseError e ]
 
         let guid (s: String) =
             Guid.TryParse s
-            |> fromByRef (sprintf "could not parse %s as guid" s)
+            |> fromByRef (sprintf "could not parse %s as Guid" s)
 
         let dateTime (s: String) =
             DateTime.TryParse s
-            |> fromByRef (sprintf "could not parse %s as date" s)
+            |> fromByRef (sprintf "could not parse %s as DateTime" s)
+
+        let dateTimeOffset (s: String) =
+            DateTimeOffset.TryParse s
+            |> fromByRef (sprintf "could not parse %s as DateTimeOffset" s)
 
         let decimal (s: String) =
             Decimal.TryParse s
-            |> fromByRef (sprintf "could not parse %s as decimal" s)
+            |> fromByRef (sprintf "could not parse %s as Decimal" s)
 
         let int (s: String) =
             Int32.TryParse s
-            |> fromByRef (sprintf "could not parse %s as integer" s)
+            |> fromByRef (sprintf "could not parse %s as Integer" s)
 
 
 module AttrReader = Read.AttrReader
