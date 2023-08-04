@@ -50,8 +50,8 @@ module AttrMapping =
         | SetDecimal sd -> A(NS = ResizeArray(Seq.map string (toSet sd)))
         | SetInt32 si -> A(NS = ResizeArray(Seq.map string (toSet si)))
         | SetBinary bs -> A(BS = ResizeArray(Seq.map toGzipMemoryStream (toSet bs)))
-        | DocList l -> A(L = ResizeArray(List.map mapAttrValue l))
-        | DocMap m -> A(M = mapAttrsToDictionary m)
+        | DocList l -> A(L = ResizeArray(List.map mapAttrValue l), IsLSet = true)
+        | DocMap m -> A(M = mapAttrsToDictionary m, IsMSet = true)
 
     and mapAttr (Attr (name, value)) = name, mapAttrValue value
 
