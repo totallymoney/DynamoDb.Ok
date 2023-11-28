@@ -33,7 +33,7 @@ type A = AttributeValue
 
 module AttrMapping =
 
-    let toSet (NonEmptyList (head, tail)) = Set.ofList tail |> Set.add head
+    let toSet (NonEmptyList(head, tail)) = Set.ofList tail |> Set.add head
 
     let rec mapAttrValue =
         function
@@ -53,7 +53,7 @@ module AttrMapping =
         | DocList l -> A(L = ResizeArray(List.map mapAttrValue l))
         | DocMap m -> A(M = mapAttrsToDictionary m)
 
-    and mapAttr (Attr (name, value)) = name, mapAttrValue value
+    and mapAttr (Attr(name, value)) = name, mapAttrValue value
 
     and mapAttrsToDictionary = List.map mapAttr >> dict >> Dictionary<string, A>
 
@@ -143,8 +143,8 @@ module DynamoDbError =
     let handleAsyncError =
         function
         | Choice1Of2 x -> Ok x
-        | Choice2Of2 (AggregrateInnerExn (ConditionalCheckFailedExn e)) -> Error [ ConditionFailedError e ]
-        | Choice2Of2 (AggregrateInnerExn e)
+        | Choice2Of2(AggregrateInnerExn(ConditionalCheckFailedExn e)) -> Error [ ConditionFailedError e ]
+        | Choice2Of2(AggregrateInnerExn e)
         | Choice2Of2 e -> Error [ OperationError e ]
 
 module Expiry =
@@ -160,10 +160,7 @@ module ExpressionAttributeName =
     let getExpAttrName attributes value =
         let getAlphabetLetter = (+) 64 >> char >> string >> (fun s -> s.ToLower())
 
-        let attributeName =
-            List.length attributes + 1
-            |> getAlphabetLetter
-            |> sprintf ":%s"
+        let attributeName = List.length attributes + 1 |> getAlphabetLetter |> sprintf ":%s"
 
         attributeName, (attributeName, value) :: attributes
 
@@ -231,7 +228,7 @@ module Write =
 
             | AttributeDoesNotExist key -> sprintf "attribute_not_exists(%s)" key, attributes
 
-            | AttributeIsType (key, type_) ->
+            | AttributeIsType(key, type_) ->
                 let typeToString =
                     function
                     | Type.String -> "S"
@@ -247,30 +244,30 @@ module Write =
 
                 getAttribute attributes key (ScalarString <| typeToString type_) "attribute_type(%s, %s)"
 
-            | BeginsWith (key, value) -> getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
+            | BeginsWith(key, value) -> getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
 
-            | Contains (key, value) -> getAttribute attributes key (ScalarString value) "contains(%s, %s)"
+            | Contains(key, value) -> getAttribute attributes key (ScalarString value) "contains(%s, %s)"
 
-            | StringEquals (key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
-            | NumberEquals (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
-            | NumberLessThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
-            | NumberLessThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
-            | NumberGreaterThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
-            | NumberGreaterThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s >= %s"
-            | NumberBetwixt (key, start, end_) ->
+            | StringEquals(key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
+            | NumberEquals(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
+            | NumberLessThan(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
+            | NumberLessThanOrEqualTo(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
+            | NumberGreaterThan(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
+            | NumberGreaterThanOrEqualTo(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s >= %s"
+            | NumberBetwixt(key, start, end_) ->
                 let startAttributeName, attributes =
                     getAttributeName attributes (ScalarDecimal start)
 
                 let endAttributeName, attributes = getAttributeName attributes (ScalarDecimal end_)
 
                 sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
-            | StringIn (key, values) -> csvAttributes attributes key values ScalarString "%s IN (%s)"
-            | NumberIn (key, values) -> csvAttributes attributes key values ScalarDecimal "%s IN (%s)"
+            | StringIn(key, values) -> csvAttributes attributes key values ScalarString "%s IN (%s)"
+            | NumberIn(key, values) -> csvAttributes attributes key values ScalarDecimal "%s IN (%s)"
             | Not c ->
                 let s, attributes = conditionToString attributes c
                 sprintf "NOT %s" s, attributes
 
-        let rec buildConditionExpression (ConditionExpression (kc, additionalConditions)) attributes =
+        let rec buildConditionExpression (ConditionExpression(kc, additionalConditions)) attributes =
             let init = conditionToString attributes kc
 
             let folder (acc, attributes) (operator, kce) =
@@ -299,7 +296,7 @@ module Write =
         let buildUpdateExpression updateExpressions attributes =
             let folder (sets, removes, attributes) =
                 function
-                | Increment (key, qty) ->
+                | Increment(key, qty) ->
                     let attributeName, attributes = getAttributeName attributes (ScalarInt32 qty)
                     let attributeNameDefault, attributes = getAttributeName attributes (ScalarInt32 0)
 
@@ -309,7 +306,7 @@ module Write =
                         | _ -> sprintf "     %s = %s + if_not_exists(%s, %s)" key attributeName key attributeNameDefault
 
                     exp :: sets, removes, attributes
-                | Set (key, value) ->
+                | Set(key, value) ->
                     let attributeName, attributes = getAttributeName attributes value
 
                     let exp =
@@ -393,7 +390,7 @@ type Write private () =
     static member DeleteItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
         conditionExpression
         |> function
-            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
+            | Some(Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
                 new DeleteItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary fields,
@@ -409,7 +406,7 @@ type Write private () =
     static member PutItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
         conditionExpression
         |> function
-            | Some (Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
+            | Some(Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
                 new PutItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary fields,
@@ -428,7 +425,7 @@ type Write private () =
 
         conditionExpression
         |> function
-            | Some (Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes)) ->
+            | Some(Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes)) ->
                 new UpdateItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary key,
@@ -476,7 +473,7 @@ type Write private () =
                 match r.UnprocessedItems, attemptCount with
                 | Success -> AsyncResult.retn ()
                 | GiveUp -> Async.retn (Error [ UnprocessedItemsError ])
-                | Retry (unprocessedItems, sleep) ->
+                | Retry(unprocessedItems, sleep) ->
                     Async.Sleep sleep
                     |> Async.map Ok
                     |> AsyncResult.bind (fun _ -> write (attemptCount + 1) unprocessedItems))
@@ -518,13 +515,10 @@ module Read =
         let retn a = Ok a |> AttrReader.retn
 
         let map f =
-            Result.map f
-            |> fun f r -> AttrReader(AttrReader.run r >> f)
+            Result.map f |> fun f r -> AttrReader(AttrReader.run r >> f)
 
         let bind f r =
-            AttrReader (fun b ->
-                AttrReader.run r b
-                |> Result.bind (fun a -> AttrReader.run (f a) b))
+            AttrReader(fun b -> AttrReader.run r b |> Result.bind (fun a -> AttrReader.run (f a) b))
 
         // let apply f r =
         //   AttrReader <| fun a ->
@@ -570,8 +564,7 @@ module Read =
 
     let internal traverseResult f list =
         let folder head tail =
-            f head
-            |> Result.bind (fun h -> tail |> Result.bind (fun t -> Ok(h :: t)))
+            f head |> Result.bind (fun h -> tail |> Result.bind (fun t -> Ok(h :: t)))
 
         List.foldBack folder list (Ok [])
 
@@ -626,9 +619,7 @@ module Read =
 
     /// pass ARR list option into Result returing f (e.g. Parse.*)
     let (@?>->) r (typ, f) =
-        r
-        >-> (List.map (Option.map typ)
-             >> traverseResult (ifSome f))
+        r >-> (List.map (Option.map typ) >> traverseResult (ifSome f))
 
 
     module Query =
@@ -665,16 +656,14 @@ module Read =
 
             let private keyConditionToString attributes =
                 function
-                | StringBeginsWith (key, value) ->
-                    getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
-                | StringEquals (key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
-                | NumberEquals (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
-                | NumberLessThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
-                | NumberLessThanOrEqualTo (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
-                | NumberGreaterThan (key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
-                | NumberGreaterThanOrEqualTo (key, value) ->
-                    getAttribute attributes key (ScalarDecimal value) "%s >= %s"
-                | NumberBetwixt (key, start, end_) ->
+                | StringBeginsWith(key, value) -> getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
+                | StringEquals(key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
+                | NumberEquals(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
+                | NumberLessThan(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
+                | NumberLessThanOrEqualTo(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
+                | NumberGreaterThan(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
+                | NumberGreaterThanOrEqualTo(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s >= %s"
+                | NumberBetwixt(key, start, end_) ->
                     let startAttributeName, attributes =
                         getAttributeName attributes (ScalarDecimal start)
 
@@ -682,7 +671,7 @@ module Read =
 
                     sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
 
-            let rec buildKeyConditionExpression (KeyConditionExpression (kc, additionalConditions)) attributes =
+            let rec buildKeyConditionExpression (KeyConditionExpression(kc, additionalConditions)) attributes =
                 let init = keyConditionToString attributes kc
 
                 let folder (acc, attributes) (operator, kce) =
@@ -721,24 +710,20 @@ module Read =
             | _ -> Error [ ParseError e ]
 
         let guid (s: String) =
-            Guid.TryParse s
-            |> fromByRef (sprintf "could not parse %s as Guid" s)
+            Guid.TryParse s |> fromByRef (sprintf "could not parse %s as Guid" s)
 
         let dateTime (s: String) =
-            DateTime.TryParse s
-            |> fromByRef (sprintf "could not parse %s as DateTime" s)
+            DateTime.TryParse s |> fromByRef (sprintf "could not parse %s as DateTime" s)
 
         let dateTimeOffset (s: String) =
             DateTimeOffset.TryParse s
             |> fromByRef (sprintf "could not parse %s as DateTimeOffset" s)
 
         let decimal (s: String) =
-            Decimal.TryParse s
-            |> fromByRef (sprintf "could not parse %s as Decimal" s)
+            Decimal.TryParse s |> fromByRef (sprintf "could not parse %s as Decimal" s)
 
         let int (s: String) =
-            Int32.TryParse s
-            |> fromByRef (sprintf "could not parse %s as Integer" s)
+            Int32.TryParse s |> fromByRef (sprintf "could not parse %s as Integer" s)
 
 
 module AttrReader = Read.AttrReader
@@ -776,9 +761,7 @@ type Read private () =
                 ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
                 ScanIndexForward = defaultArg scanIndexForward true,
                 IndexName = defaultArg indexName null,
-                ExclusiveStartKey =
-                    (defaultArg exclusiveStartKey []
-                     |> AttrMapping.mapAttrsToDictionary)
+                ExclusiveStartKey = (defaultArg exclusiveStartKey [] |> AttrMapping.mapAttrsToDictionary)
             )
 
         setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
@@ -855,8 +838,7 @@ module Example =
     let buildInny x y = { X = x; Y = y }
 
     let innyReader =
-        buildInny <!> (req "x" A.string)
-        <*> (req "y" A.string >-> P.decimal)
+        buildInny <!> (req "x" A.string) <*> (req "y" A.string >-> P.decimal)
 
     type Outty =
         { F: String
@@ -881,8 +863,7 @@ module Example =
         buildOutty <!> (req "f" A.string)
         <*> (req "g" A.string >-> P.dateTime)
         <*> (req "i" A.docMap >-> R.run innyReader)
-        <*> (req "h" A.docList
-             @>-> (A.docMap, R.run innyReader))
+        <*> (req "h" A.docList @>-> (A.docMap, R.run innyReader))
         <*> (req "j" A.docList @>-> (A.number, P.decimal))
         <*> (req "k" A.docList @>- A.string)
         <*> (opt "l" A.docList ?@>-> (A.string, P.dateTime))

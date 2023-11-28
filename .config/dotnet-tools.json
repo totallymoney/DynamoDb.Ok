@@ -3,21 +3,21 @@
   "isRoot": true,
   "tools": {
     "paket": {
-      "version": "7.1.5",
+      "version": "8.0.0",
       "commands": [
         "paket"
       ]
     },
-    "fornax": {
-      "version": "0.13.1",
-      "commands": [
-        "fornax"
-      ]
-    },
-    "fantomas-tool": {
-      "version": "4.7.9",
+    "fantomas": {
+      "version": "6.2.3",
       "commands": [
         "fantomas"
+      ]
+    },
+    "fornax": {
+      "version": "0.15.1",
+      "commands": [
+        "fornax"
       ]
     }
   }
