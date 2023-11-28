@@ -6,6 +6,7 @@ open System.IO
 open System.IO.Compression
 open Amazon.DynamoDBv2
 open Amazon.DynamoDBv2.Model
+open FsToolkit.ErrorHandling
 
 
 type Attr = Attr of name: string * value: AttrValue
@@ -484,10 +485,8 @@ type Write private () =
             >> fun a -> new PutRequest(Item = a)
             >> fun r -> new WriteRequest(PutRequest = r)
         )
-        |> fun reqs -> [ tableName, ResizeArray reqs ]
-        |> dict
-        |> Dictionary<string, ResizeArray<WriteRequest>>
-        |> write 1
+        |> List.chunkBySize 25
+        |> List.traverseAsyncResultM (fun reqs -> [ tableName, ResizeArray reqs ] |> (dict >> Dictionary) |> write 1)
 
 
 module Read =
