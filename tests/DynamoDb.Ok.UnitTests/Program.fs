@@ -4,4 +4,4 @@ open Tests
 
 [<EntryPoint>]
 let main args =
-    runTestsWithArgs defaultConfig args tests
+    runTestsWithCLIArgs [] args tests
