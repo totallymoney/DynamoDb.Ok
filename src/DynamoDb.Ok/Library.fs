@@ -487,7 +487,7 @@ type Write private () =
         )
         |> List.chunkBySize 25
         |> List.traverseAsyncResultM (fun reqs -> [ tableName, ResizeArray reqs ] |> (dict >> Dictionary) |> write 1)
-
+        |> AsyncResult.ignore
 
 module Read =
 
