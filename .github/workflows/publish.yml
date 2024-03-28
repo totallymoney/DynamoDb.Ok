@@ -6,21 +6,21 @@ on:
       - master
 
 env:
-  publish_version: 0.1.${{ github.run_number }}
+  publish_version: 0.2.${{ github.run_number }}
 
 jobs:
   build:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        dotnet: [6.0.401]
+        dotnet: ['8.x.x']
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet }}
           source-url: https://nuget.pkg.github.com/totallymoney/index.json
