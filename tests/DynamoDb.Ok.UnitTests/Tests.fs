@@ -84,4 +84,12 @@ let tests =
                     ":c", ScalarDecimal 50m
                     ":d", ScalarDecimal 0m
                     ":e", ScalarDecimal 3m ]
-                  (List.rev attrs) ]
+                  (List.rev attrs)
+
+          testCase "AttrMapping with IsLSet enabled"
+          <| fun () ->
+              let x = AttrMapping.mapAttrValue ((DocList([])))
+              let y = AttrMapping.mapAttrValue ((DocMap([])))
+
+              Expect.equal "" x.IsLSet true
+              Expect.equal "" y.IsLSet false ]

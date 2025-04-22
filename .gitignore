@@ -11,3 +11,4 @@ release.sh
 _public
 build/
 out/
+.idea
