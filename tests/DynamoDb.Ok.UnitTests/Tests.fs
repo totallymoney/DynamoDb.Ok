@@ -151,10 +151,7 @@ let tests =
 
               Expect.equal "" "#a between :a and :b" exp
               Expect.equal "" [ ":a", ScalarDecimal 10m; ":b", ScalarDecimal 20m ] (List.rev valueAttrs)
-              Expect.equal "" [ "#a", "Hash" ] (List.rev nameAliases) ]
-                  Expect.equal "" "SET #a = :a + if_not_exists(#a, :b) REMOVE #b" exp
-                  Expect.equal "" [ ":a", ScalarInt32 1; ":b", ScalarInt32 0 ] (List.rev valueAttrs)
-                  Expect.equal "" [ "#a", "Hash"; "#b", "Order" ] (List.rev nameAliases)
+              Expect.equal "" [ "#a", "Hash" ] (List.rev nameAliases)
 
           testCase "UpdateExpression reuses alias across multiple operations on same field"
               <| fun () ->
