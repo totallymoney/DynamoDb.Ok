@@ -165,6 +165,14 @@ module ExpressionAttributeName =
 
         attributeName, (attributeName, value) :: attributes
 
+    let getNameAlias names actualName =
+        match List.tryFind (fun (_, actual) -> actual = actualName) names with
+        | Some(alias, _) -> alias, names
+        | None ->
+            let getAlphabetLetter = (+) 64 >> char >> string >> _.ToLower()
+            let alias = List.length names + 1 |> getAlphabetLetter |> sprintf "#%s"
+            alias, (alias, actualName) :: names
+
 module Write =
 
     module ConditionExpression =
@@ -289,43 +297,60 @@ module Write =
             | Remove of key: String
 
         let private getAttributeName = ExpressionAttributeName.getExpAttrName
+        let private getNameAlias = ExpressionAttributeName.getNameAlias
 
         let private joinSpace (l: String list) = String.Join(" ", l)
 
         let private joinComma (l: String list) = String.Join(",", l)
 
-        let buildUpdateExpression updateExpressions attributes =
-            let folder (sets, removes, attributes) =
+        let buildUpdateExpression updateExpressions attributes nameAliases =
+            let folder (sets, removes, attributes, nameAliases) =
                 function
                 | Increment(key, qty) ->
                     let attributeName, attributes = getAttributeName attributes (ScalarInt32 qty)
                     let attributeNameDefault, attributes = getAttributeName attributes (ScalarInt32 0)
+                    let keyAlias, nameAliases = getNameAlias nameAliases key
 
                     let exp =
                         match sets with
-                        | [] -> sprintf "SET %s = %s + if_not_exists(%s, %s)" key attributeName key attributeNameDefault
-                        | _ -> sprintf "     %s = %s + if_not_exists(%s, %s)" key attributeName key attributeNameDefault
+                        | [] ->
+                            sprintf
+                                "SET %s = %s + if_not_exists(%s, %s)"
+                                keyAlias
+                                attributeName
+                                keyAlias
+                                attributeNameDefault
+                        | _ ->
+                            sprintf
+                                "     %s = %s + if_not_exists(%s, %s)"
+                                keyAlias
+                                attributeName
+                                keyAlias
+                                attributeNameDefault
 
-                    exp :: sets, removes, attributes
+                    exp :: sets, removes, attributes, nameAliases
                 | Set(key, value) ->
                     let attributeName, attributes = getAttributeName attributes value
+                    let keyAlias, nameAliases = getNameAlias nameAliases key
 
                     let exp =
                         match sets with
-                        | [] -> sprintf "SET %s = %s" key attributeName
-                        | _ -> sprintf "%s = %s" key attributeName
+                        | [] -> sprintf "SET %s = %s" keyAlias attributeName
+                        | _ -> sprintf "%s = %s" keyAlias attributeName
 
-                    exp :: sets, removes, attributes
+                    exp :: sets, removes, attributes, nameAliases
                 | Remove key ->
+                    let keyAlias, nameAliases = getNameAlias nameAliases key
+
                     let exp =
                         match removes with
-                        | [] -> sprintf "REMOVE %s" key
-                        | _ -> sprintf "%s" key
+                        | [] -> sprintf "REMOVE %s" keyAlias
+                        | _ -> sprintf "%s" keyAlias
 
-                    sets, exp :: removes, attributes
+                    sets, exp :: removes, attributes, nameAliases
 
-            let sets, removes, attributes =
-                List.fold folder ([], [], attributes) updateExpressions
+            let sets, removes, attributes, nameAliases =
+                List.fold folder ([], [], attributes, nameAliases) updateExpressions
 
             let join l =
                 if not <| List.isEmpty l then
@@ -335,7 +360,7 @@ module Write =
 
             let exp = [ sets; removes ] |> List.choose join |> joinSpace
 
-            exp, attributes
+            exp, attributes, nameAliases
 
     module BuildAttr =
 
@@ -421,27 +446,31 @@ type Write private () =
         |> Async.map DynamoDbError.handleAsyncError
 
     static member UpdateItem(client: AmazonDynamoDBClient, tableName, key, updateExpression, ?conditionExpression) =
-        let updateExp, attributes =
-            Write.UpdateExpression.buildUpdateExpression updateExpression []
+        let updateExp, attributes, nameAliases =
+            Write.UpdateExpression.buildUpdateExpression updateExpression [] []
+
+        let namesDict = nameAliases |> dict |> Dictionary<string, string>
 
         conditionExpression
         |> function
             | Some(Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes)) ->
-                new UpdateItemRequest(
+                UpdateItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary key,
                     null,
                     UpdateExpression = updateExp,
                     ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
+                    ExpressionAttributeNames = namesDict,
                     ConditionExpression = exp
                 )
             | None ->
-                new UpdateItemRequest(
+                UpdateItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary key,
                     null,
                     UpdateExpression = updateExp,
-                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attributes,
+                    ExpressionAttributeNames = namesDict
                 )
         |> client.UpdateItemAsync
         |> Async.AwaitTask

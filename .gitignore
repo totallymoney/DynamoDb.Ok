@@ -12,3 +12,4 @@ _public
 build/
 out/
 .idea
+*.user

@@ -92,4 +92,29 @@ let tests =
               let y = AttrMapping.mapAttrValue ((DocMap([])))
 
               Expect.equal "" x.IsLSet true
-              Expect.equal "" y.IsLSet false ]
+              Expect.equal "" y.IsLSet false
+
+          testCase "UpdateExpression aliases reserved names in SET"
+              <| fun () ->
+                  let exp, valueAttrs, nameAliases =
+                      Write.UpdateExpression.buildUpdateExpression
+                          [ Write.UpdateExpression.Set("Hash", ScalarString "ok") ]
+                          []
+                          []
+
+                  Expect.equal "" "SET #a = :a" exp
+                  Expect.equal "" [ ":a", ScalarString "ok" ] (List.rev valueAttrs)
+                  Expect.equal "" [ "#a", "Hash" ] (List.rev nameAliases)
+
+          testCase "UpdateExpression aliases names in INCREMENT and REMOVE, reuses alias"
+              <| fun () ->
+                  let exp, valueAttrs, nameAliases =
+                      Write.UpdateExpression.buildUpdateExpression
+                          [ Write.UpdateExpression.Increment("Hash", 1)
+                            Write.UpdateExpression.Remove "Order" ]
+                          []
+                          []
+
+                  Expect.equal "" "SET #a = :a + if_not_exists(#a, :b) REMOVE #b" exp
+                  Expect.equal "" [ ":a", ScalarInt32 1; ":b", ScalarInt32 0 ] (List.rev valueAttrs)
+                  Expect.equal "" [ "#a", "Hash"; "#b", "Order" ] (List.rev nameAliases) ]
