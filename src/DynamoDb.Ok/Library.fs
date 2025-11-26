@@ -322,7 +322,7 @@ module Write =
                                 attributeNameDefault
                         | _ ->
                             sprintf
-                                "     %s = %s + if_not_exists(%s, %s)"
+                                "%s = %s + if_not_exists(%s, %s)"
                                 keyAlias
                                 attributeName
                                 keyAlias
