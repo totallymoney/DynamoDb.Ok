@@ -793,12 +793,12 @@ type Read private () =
                 KeyConditionExpression = expression,
                 ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
                 ScanIndexForward = defaultArg scanIndexForward true,
-                IndexName = defaultArg indexName null,
-                ExclusiveStartKey = (defaultArg exclusiveStartKey [] |> AttrMapping.mapAttrsToDictionary)
+                IndexName = defaultArg indexName null
             )
 
         setOptionalProperty queryRequest limit (fun qr v -> qr.Limit <- v)
         setOptionalProperty queryRequest consistentRead (fun qr v -> qr.ConsistentRead <- v)
+        setOptionalProperty queryRequest exclusiveStartKey (fun qr v -> qr.ExclusiveStartKey <- AttrMapping.mapAttrsToDictionary v)
 
         queryRequest
         |> client.QueryAsync
