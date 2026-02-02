@@ -483,8 +483,9 @@ type Write private () =
             Option.defaultValue Write.BackOffRetry.defaultStrategy retryBackOffStrategy
 
         let (|NonEmptyDict|_|) (d: Dictionary<_, _>) =
-            match d.Count > 0 with
-            | true -> Some d
+            match d with
+            | null -> None
+            | d when d.Count > 0 -> Some d
             | _ -> None
 
         let (|Success|Retry|GiveUp|) =
@@ -588,7 +589,10 @@ module Read =
     let attrReaderResult = new AttrReaderResultBuilder()
 
 
-    let internal toMap d = Seq.map (|KeyValue|) d |> Map.ofSeq
+    let internal toMap d =
+        match d with
+        | null -> Map.empty
+        | d -> Seq.map (|KeyValue|) d |> Map.ofSeq
 
     let internal traverseResult f list =
         let folder head tail =
@@ -720,11 +724,20 @@ module Read =
 
         let number (a: A) = a.N
 
-        let docMap (a: A) = toMap a.M
+        let docMap (a: A) =
+            match a.M with
+            | null -> Map.empty
+            | m -> toMap m
 
-        let docList (a: A) = List.ofSeq a.L
+        let docList (a: A) =
+            match a.L with
+            | null -> []
+            | l -> List.ofSeq l
 
-        let setString (a: A) = Set.ofSeq a.SS
+        let setString (a: A) =
+            match a.SS with
+            | null -> Set.empty
+            | ss -> Set.ofSeq ss
 
         let isNull (a: A) =
             Option.ofNullable a.NULL |> Option.defaultValue false
@@ -806,7 +819,10 @@ type Read private () =
         |> Async.Catch
         |> Async.map (
             DynamoDbError.handleAsyncError
-            >> Result.map (fun r -> Seq.map Read.toMap r.Items |> List.ofSeq)
+            >> Result.map (fun r ->
+                match r.Items with
+                | null -> []
+                | items -> Seq.map Read.toMap items |> List.ofSeq)
             >> Result.bind (Read.traverseResult (AttrReader.run reader))
         )
 
