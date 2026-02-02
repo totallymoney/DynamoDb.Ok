@@ -715,7 +715,8 @@ module Read =
 
         let string (a: A) = a.S
 
-        let bool (a: A) = a.BOOL
+        let bool (a: A) =
+            Option.ofNullable a.BOOL |> Option.defaultValue false
 
         let number (a: A) = a.N
 
@@ -725,9 +726,13 @@ module Read =
 
         let setString (a: A) = Set.ofSeq a.SS
 
-        let isNull (a: A) = a.NULL
+        let isNull (a: A) =
+            Option.ofNullable a.NULL |> Option.defaultValue false
 
-        let nullOr f (a: A) = if a.NULL then None else Some(f a)
+        let nullOr f (a: A) =
+            match Option.ofNullable a.NULL with
+            | Some true -> None
+            | _ -> Some(f a)
 
 
     module Parse =

@@ -4,17 +4,14 @@ storage none
 framework auto-detect
 
 nuget AWSSDK.DynamoDBv2
-nuget FSharp.Core
-nuget Expecto
-nuget FsCheck 2.14.0
-nuget Expecto.FsCheck
 nuget FsToolkit.ErrorHandling
+nuget Expecto
 
 group Docs
   source https://api.nuget.org/v3/index.json
   framework auto-detect
   storage symlink
 
-  nuget FSharp.Compiler.Service ~> 35.0
-  nuget FSharp.Formatting ~> 4.1
+  nuget FSharp.Compiler.Service
+  nuget FSharp.Formatting
   nuget Newtonsoft.Json
