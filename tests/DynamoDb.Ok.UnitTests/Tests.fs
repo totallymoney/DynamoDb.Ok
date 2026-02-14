@@ -95,29 +95,63 @@ let tests =
               Expect.equal "" y.IsLSet false
 
           testCase "UpdateExpression aliases reserved names in SET"
-              <| fun () ->
-                  let exp, valueAttrs, nameAliases =
-                      Write.UpdateExpression.buildUpdateExpression
-                          [ Write.UpdateExpression.Set("Hash", ScalarString "ok") ]
-                          []
-                          []
+          <| fun () ->
+              let exp, valueAttrs, nameAliases =
+                  Write.UpdateExpression.buildUpdateExpression
+                      [ Write.UpdateExpression.Set("Hash", ScalarString "ok") ]
+                      []
+                      []
 
-                  Expect.equal "" "SET #a = :a" exp
-                  Expect.equal "" [ ":a", ScalarString "ok" ] (List.rev valueAttrs)
-                  Expect.equal "" [ "#a", "Hash" ] (List.rev nameAliases)
+              Expect.equal "" "SET #a = :a" exp
+              Expect.equal "" [ ":a", ScalarString "ok" ] (List.rev valueAttrs)
+              Expect.equal "" [ "#a", "Hash" ] (List.rev nameAliases)
 
           testCase "UpdateExpression aliases names in INCREMENT and REMOVE, reuses alias"
-              <| fun () ->
-                  let exp, valueAttrs, nameAliases =
-                      Write.UpdateExpression.buildUpdateExpression
-                          [ Write.UpdateExpression.Increment("Hash", 1)
-                            Write.UpdateExpression.Remove "Order" ]
-                          []
-                          []
+          <| fun () ->
+              let exp, valueAttrs, nameAliases =
+                  Write.UpdateExpression.buildUpdateExpression
+                      [ Write.UpdateExpression.Increment("Hash", 1)
+                        Write.UpdateExpression.Remove "Order" ]
+                      []
+                      []
 
-                  Expect.equal "" "SET #a = :a + if_not_exists(#a, :b) REMOVE #b" exp
-                  Expect.equal "" [ ":a", ScalarInt32 1; ":b", ScalarInt32 0 ] (List.rev valueAttrs)
-                  Expect.equal "" [ "#a", "Hash"; "#b", "Order" ] (List.rev nameAliases)
+              Expect.equal "" "SET #a = :a + if_not_exists(#a, :b) REMOVE #b" exp
+              Expect.equal "" [ ":a", ScalarInt32 1; ":b", ScalarInt32 0 ] (List.rev valueAttrs)
+              Expect.equal "" [ "#a", "Hash"; "#b", "Order" ] (List.rev nameAliases)
+
+          testCase "ConditionExpression aliases reserved names"
+          <| fun () ->
+              let exp, valueAttrs, nameAliases =
+                  Write.ConditionExpression.buildConditionExpression
+                      (Write.ConditionExpression.ConditionExpression(
+                          Write.ConditionExpression.AttributeExists "Hash",
+                          [ Write.ConditionExpression.And,
+                            Write.ConditionExpression.ConditionExpression(
+                                Write.ConditionExpression.StringEquals("Order", "test"),
+                                []
+                            ) ]
+                      ))
+                      []
+                      []
+
+              Expect.equal "" "attribute_exists(#a) AND (#b = :a)" exp
+              Expect.equal "" [ ":a", ScalarString "test" ] (List.rev valueAttrs)
+              Expect.equal "" [ "#a", "Hash"; "#b", "Order" ] (List.rev nameAliases)
+
+          testCase "ConditionExpression aliases names in NumberBetwixt"
+          <| fun () ->
+              let exp, valueAttrs, nameAliases =
+                  Write.ConditionExpression.buildConditionExpression
+                      (Write.ConditionExpression.ConditionExpression(
+                          Write.ConditionExpression.NumberBetwixt("Hash", 10m, 20m),
+                          []
+                      ))
+                      []
+                      []
+
+              Expect.equal "" "#a between :a and :b" exp
+              Expect.equal "" [ ":a", ScalarDecimal 10m; ":b", ScalarDecimal 20m ] (List.rev valueAttrs)
+              Expect.equal "" [ "#a", "Hash" ] (List.rev nameAliases)
 
           testCase "UpdateExpression reuses alias across multiple operations on same field"
               <| fun () ->

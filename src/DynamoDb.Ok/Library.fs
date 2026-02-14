@@ -218,24 +218,31 @@ module Write =
             | Or -> "OR"
 
         let private getAttributeName = ExpressionAttributeName.getExpAttrName
+        let private getNameAlias = ExpressionAttributeName.getNameAlias
 
-        let private getAttribute attributes key value format =
+        let private getAttribute attributes nameAliases key value format =
             let attributeName, attributes = getAttributeName attributes value
-            sprintf format key attributeName, attributes
+            let keyAlias, nameAliases = getNameAlias nameAliases key
+            sprintf format keyAlias attributeName, attributes, nameAliases
 
-        let csvAttributes attributes key values valueF format =
+        let csvAttributes attributes nameAliases key values valueF format =
             let folder (names, attrs) value =
                 let name, attrs = getAttributeName attrs (valueF value)
                 name :: names, attrs
 
             let names, attributes = List.fold folder ([], attributes) values
-            sprintf format key (String.Join(",", names)), attributes
+            let keyAlias, nameAliases = getNameAlias nameAliases key
+            sprintf format keyAlias (String.Join(",", names)), attributes, nameAliases
 
-        let rec private conditionToString attributes =
+        let rec private conditionToString attributes nameAliases =
             function
-            | AttributeExists key -> sprintf "attribute_exists(%s)" key, attributes
+            | AttributeExists key ->
+                let keyAlias, nameAliases = getNameAlias nameAliases key
+                sprintf "attribute_exists(%s)" keyAlias, attributes, nameAliases
 
-            | AttributeDoesNotExist key -> sprintf "attribute_not_exists(%s)" key, attributes
+            | AttributeDoesNotExist key ->
+                let keyAlias, nameAliases = getNameAlias nameAliases key
+                sprintf "attribute_not_exists(%s)" keyAlias, attributes, nameAliases
 
             | AttributeIsType(key, type_) ->
                 let typeToString =
@@ -251,43 +258,49 @@ module Write =
                     | Type.List -> "L"
                     | Type.Map -> "M"
 
-                getAttribute attributes key (ScalarString <| typeToString type_) "attribute_type(%s, %s)"
+                getAttribute attributes nameAliases key (ScalarString <| typeToString type_) "attribute_type(%s, %s)"
 
-            | BeginsWith(key, value) -> getAttribute attributes key (ScalarString value) "begins_with(%s, %s)"
+            | BeginsWith(key, value) ->
+                getAttribute attributes nameAliases key (ScalarString value) "begins_with(%s, %s)"
 
-            | Contains(key, value) -> getAttribute attributes key (ScalarString value) "contains(%s, %s)"
+            | Contains(key, value) -> getAttribute attributes nameAliases key (ScalarString value) "contains(%s, %s)"
 
-            | StringEquals(key, value) -> getAttribute attributes key (ScalarString value) "%s = %s"
-            | NumberEquals(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s = %s"
-            | NumberLessThan(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s < %s"
-            | NumberLessThanOrEqualTo(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s <= %s"
-            | NumberGreaterThan(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s > %s"
-            | NumberGreaterThanOrEqualTo(key, value) -> getAttribute attributes key (ScalarDecimal value) "%s >= %s"
+            | StringEquals(key, value) -> getAttribute attributes nameAliases key (ScalarString value) "%s = %s"
+            | NumberEquals(key, value) -> getAttribute attributes nameAliases key (ScalarDecimal value) "%s = %s"
+            | NumberLessThan(key, value) -> getAttribute attributes nameAliases key (ScalarDecimal value) "%s < %s"
+            | NumberLessThanOrEqualTo(key, value) ->
+                getAttribute attributes nameAliases key (ScalarDecimal value) "%s <= %s"
+            | NumberGreaterThan(key, value) -> getAttribute attributes nameAliases key (ScalarDecimal value) "%s > %s"
+            | NumberGreaterThanOrEqualTo(key, value) ->
+                getAttribute attributes nameAliases key (ScalarDecimal value) "%s >= %s"
             | NumberBetwixt(key, start, end_) ->
                 let startAttributeName, attributes =
                     getAttributeName attributes (ScalarDecimal start)
 
                 let endAttributeName, attributes = getAttributeName attributes (ScalarDecimal end_)
 
-                sprintf "%s between %s and %s" key startAttributeName endAttributeName, attributes
-            | StringIn(key, values) -> csvAttributes attributes key values ScalarString "%s IN (%s)"
-            | NumberIn(key, values) -> csvAttributes attributes key values ScalarDecimal "%s IN (%s)"
+                let keyAlias, nameAliases = getNameAlias nameAliases key
+                sprintf "%s between %s and %s" keyAlias startAttributeName endAttributeName, attributes, nameAliases
+            | StringIn(key, values) -> csvAttributes attributes nameAliases key values ScalarString "%s IN (%s)"
+            | NumberIn(key, values) -> csvAttributes attributes nameAliases key values ScalarDecimal "%s IN (%s)"
             | Not c ->
-                let s, attributes = conditionToString attributes c
-                sprintf "NOT %s" s, attributes
+                let s, attributes, nameAliases = conditionToString attributes nameAliases c
+                sprintf "NOT %s" s, attributes, nameAliases
 
-        let rec buildConditionExpression (ConditionExpression(kc, additionalConditions)) attributes =
-            let init = conditionToString attributes kc
+        let rec buildConditionExpression (ConditionExpression(kc, additionalConditions)) attributes nameAliases =
+            let init = conditionToString attributes nameAliases kc
 
-            let folder (acc, attributes) (operator, kce) =
-                let exp, attributes = buildConditionExpression kce attributes
+            let folder (acc, attributes, nameAliases) (operator, kce) =
+                let exp, attributes, nameAliases =
+                    buildConditionExpression kce attributes nameAliases
 
                 let bool = boolOperatorToExpression operator
-                sprintf "%s %s (%s)" acc bool exp, attributes
+                sprintf "%s %s (%s)" acc bool exp, attributes, nameAliases
 
             List.fold folder init additionalConditions
 
-        let (|BuildConditionExpression|) attrs ce = buildConditionExpression ce attrs
+        let (|BuildConditionExpression|) (attrs, nameAliases) ce =
+            buildConditionExpression ce attrs nameAliases
 
     module UpdateExpression =
 
@@ -416,12 +429,15 @@ type Write private () =
     static member DeleteItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
         conditionExpression
         |> function
-            | Some(Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
+            | Some(Write.ConditionExpression.BuildConditionExpression ([], []) (exp, attrs, nameAliases)) ->
+                let namesDict = nameAliases |> dict |> Dictionary<string, string>
+
                 new DeleteItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary fields,
                     ConditionExpression = exp,
-                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
+                    ExpressionAttributeNames = namesDict
                 )
             | None -> new DeleteItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.DeleteItemAsync
@@ -432,12 +448,15 @@ type Write private () =
     static member PutItem(client: AmazonDynamoDBClient, tableName, fields, ?conditionExpression) =
         conditionExpression
         |> function
-            | Some(Write.ConditionExpression.BuildConditionExpression [] (exp, attrs)) ->
+            | Some(Write.ConditionExpression.BuildConditionExpression ([], []) (exp, attrs, nameAliases)) ->
+                let namesDict = nameAliases |> dict |> Dictionary<string, string>
+
                 new PutItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary fields,
                     ConditionExpression = exp,
-                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs
+                    ExpressionAttributeValues = AttrMapping.buildAttrDictionary attrs,
+                    ExpressionAttributeNames = namesDict
                 )
             | None -> new PutItemRequest(tableName, AttrMapping.mapAttrsToDictionary fields)
         |> client.PutItemAsync
@@ -449,11 +468,13 @@ type Write private () =
         let updateExp, attributes, nameAliases =
             Write.UpdateExpression.buildUpdateExpression updateExpression [] []
 
-        let namesDict = nameAliases |> dict |> Dictionary<string, string>
-
         conditionExpression
         |> function
-            | Some(Write.ConditionExpression.BuildConditionExpression attributes (exp, attributes)) ->
+            | Some(Write.ConditionExpression.BuildConditionExpression (attributes, nameAliases) (exp,
+                                                                                                 attributes,
+                                                                                                 nameAliases)) ->
+                let namesDict = nameAliases |> dict |> Dictionary<string, string>
+
                 UpdateItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary key,
@@ -464,6 +485,8 @@ type Write private () =
                     ConditionExpression = exp
                 )
             | None ->
+                let namesDict = nameAliases |> dict |> Dictionary<string, string>
+
                 UpdateItemRequest(
                     tableName,
                     AttrMapping.mapAttrsToDictionary key,
